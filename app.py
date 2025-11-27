@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# حط هنا لينك الـ CSV بتاع الشيت بتاعك
+# لينك الـ CSV بتاع Google Sheets
 GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8Z8QSRfb73Lk63htHUK31I59W5ZDaDTb81dtVK0Q61tczvnfGgGVQMYndidyxG8IdKuuVZ4o/pub?gid=551101663&single=true&output=csv"
 
 # =========================
@@ -21,7 +21,7 @@ GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8
 def load_data() -> pd.DataFrame:
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
-    # توحيد اسم العمود بتاع التاريخ
+    # تحديد عمود التاريخ
     if "Date" in df.columns:
         date_col = "Date"
     elif "date" in df.columns:
@@ -34,15 +34,15 @@ def load_data() -> pd.DataFrame:
     df = df.sort_values(date_col)
     df = df.rename(columns={date_col: "date"})
 
-    # لو في أرقام فاضية نخليها 0
+    # ملء الـ NaN في الأرقام بـ 0
     numeric_cols = df.select_dtypes(include="number").columns
     df[numeric_cols] = df[numeric_cols].fillna(0)
 
-    # أعمدة ممكن تكون موجودة (هنستخدمها في الكالكوليشن)
+    # هيلبر صغير عشان نتأكد إن العمود موجود
     def col(name):
         return name if name in df.columns else None
 
-    # إجمالي الإنترآكشن per day
+    # إجمالي الـ interactions
     total_interaction_cols = [
         col("Total Calls Received"),
         col("WhatsApp Answered"),
@@ -68,7 +68,7 @@ def load_data() -> pd.DataFrame:
     else:
         df["total_new_bookings"] = 0
 
-    # interested
+    # إجمالي interested
     interested_cols = [
         col("Interested - Insta"),
         col("Interested - Whats"),
@@ -80,7 +80,7 @@ def load_data() -> pd.DataFrame:
     else:
         df["total_interested"] = 0
 
-    # not interested (كل البلاتفورمز)
+    # إجمالي not interested (Calls + WhatsApp + Insta + TikTok)
     not_interested_cols = [
         col("Not Interested - Call"),
         col("Not Interested - Whats"),
@@ -99,7 +99,7 @@ def load_data() -> pd.DataFrame:
 df = load_data()
 
 # =========================
-# الفلاتر (السايد بار)
+# الفلاتر (Sidebar)
 # =========================
 st.sidebar.title("Filters")
 
@@ -122,8 +122,18 @@ elif quick_range == "This month":
 else:  # All time
     default_start = min_date
 
-start_date = st.sidebar.date_input("Start date", value=default_start, min_value=min_date, max_value=max_date)
-end_date = st.sidebar.date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+start_date = st.sidebar.date_input(
+    "Start date",
+    value=default_start,
+    min_value=min_date,
+    max_value=max_date,
+)
+end_date = st.sidebar.date_input(
+    "End date",
+    value=max_date,
+    min_value=min_date,
+    max_value=max_date,
+)
 
 if start_date > end_date:
     st.sidebar.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية، عدّل التواريخ.")
@@ -136,7 +146,6 @@ filtered = df.loc[mask].copy()
 # العنوان
 # =========================
 st.title("🦷 AL-basma Clinic Leads Dashboard")
-
 st.caption(
     f"الفترة من **{start_date}** إلى **{end_date}** — عدد الأيام: **{(end_date - start_date).days + 1}**"
 )
@@ -165,7 +174,13 @@ st.markdown("---")
 # =========================
 st.subheader("📈 Inquiry Trends")
 
-trend_cols = ["date", "total_interactions", "total_new_bookings", "total_interested", "total_not_interested"]
+trend_cols = [
+    "date",
+    "total_interactions",
+    "total_new_bookings",
+    "total_interested",
+    "total_not_interested",
+]
 trend_data = filtered[trend_cols].set_index("date")
 
 st.line_chart(trend_data)
@@ -177,7 +192,7 @@ st.markdown("---")
 # =========================
 col_left, col_right = st.columns(2)
 
-# تعريف الأعمدة (هنا مهم اسم العمود يبقى زي الشيت بالظبط)
+# IMPORTANT: لازم أسماء الأعمدة هنا تبقى زي الشيت بالظبط
 NOT_INTERESTED_PLATFORM_COLS = {
     "Calls": "Not Interested - Call",
     "WhatsApp": "Not Interested - Whats",
@@ -186,13 +201,13 @@ NOT_INTERESTED_PLATFORM_COLS = {
 }
 
 NO_REPLY_PLATFORM_COLS = {
-    "Calls": "Didn’t Answer - Call",
-    "WhatsApp": "Didn’t Answer - Whats",
-    "Instagram": "Didn’t Answer - Insta",
-    "TikTok": "Didn’t Answer - TikTok",
+    "Calls": "Didn't Answer - Call",
+    "WhatsApp": "Didn't Answer - Whats",
+    "Instagram": "Didn't Answer - Insta",
+    "TikTok": "Didn't Answer - TikTok",
 }
 
-# نستخدم بس الأعمدة اللي فعلاً موجودة في الشيت عشان ميبقاش فيه Error
+# نجيب بس الأعمدة اللي موجودة فعلاً
 ni_data = []
 for label, col_name in NOT_INTERESTED_PLATFORM_COLS.items():
     if col_name in filtered.columns:
@@ -220,7 +235,7 @@ with col_right:
         st.info("لا يوجد أعمدة Didn't Answer للمنصات في الشيت أو الأسماء مختلفة.")
 
 # =========================
-# Platform breakdown (مثال بسيط)
+# Platform Breakdown (إجمالي الإنترآكشن لكل منصة)
 # =========================
 st.markdown("---")
 st.subheader("📊 Platform Breakdown (All Interactions)")
@@ -235,7 +250,9 @@ platform_cols = {
 platform_data = []
 for label, col_name in platform_cols.items():
     if col_name in filtered.columns:
-        platform_data.append({"Platform": label, "Interactions": int(filtered[col_name].sum())})
+        platform_data.append(
+            {"Platform": label, "Interactions": int(filtered[col_name].sum())}
+        )
 
 if platform_data:
     plat_df = pd.DataFrame(platform_data).set_index("Platform")
