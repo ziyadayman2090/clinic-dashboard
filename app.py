@@ -14,7 +14,7 @@ GOOGLE_SHEET_CSV_URL = (
 # ==========================
 # 2) تحميل الداتا
 # ==========================
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=10)
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
