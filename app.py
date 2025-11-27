@@ -436,7 +436,7 @@ else:
 # ======================
 # Last 7 days per platform (daily)
 # ======================
-st.subheader("Last 7 days per platform")
+st.subheader("Last 7 days ")
 
 daily_platform = st.selectbox(
     "Choose platform (last 7 days – daily view):",
