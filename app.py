@@ -324,7 +324,7 @@ col_left, col_right = st.columns(2)
 
 # ------ Interactions per platform ------
 with col_left:
-    st.caption("Interactions per platform")
+    st.caption("Interactions")
 
     interactions_cols = {}
 
@@ -348,7 +348,7 @@ with col_left:
 
 # ------ New bookings per platform ------
 with col_right:
-    st.caption("New bookings per platform")
+    st.caption("New bookings")
 
     bookings_cols = {}
 
@@ -373,7 +373,7 @@ with col_right:
 # ======================
 # Last 4 weeks per platform (بلاتفورم واحد × ٤ أسابيع)
 # ======================
-st.subheader("Last 4 weeks per platform")
+st.subheader("Last 4 weeks")
 
 weekly_platform = st.selectbox(
     "Choose platform (weekly view):",
