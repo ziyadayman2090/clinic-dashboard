@@ -1,44 +1,76 @@
-import pandas as pd
 import streamlit as st
-from datetime import datetime, timedelta
+import pandas as pd
+import datetime as dt
 
-# ========= إعدادات أساسية =========
-st.set_page_config(
-    page_title="Clinic Leads Dashboard",
-    layout="wide"
-)
-
-# حط هنا لينك الـ CSV بتاع Google Sheets
 GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8Z8QSRfb73Lk63htHUK31I59W5ZDaDTb81dtVK0Q61tczvnfGgGVQMYndidyxG8IdKuuVZ4o/pub?gid=551101663&single=true&output=csv"
 
-# مثال:
-# GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/...../export?format=csv&gid=0"
 
-# ========= تحميل الداتا =========
-@st.cache_data(ttl=300)
+@st.cache_data
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
-    # نتأكد إن فيه عمود Date و نحوله لتاريخ
-    if "Date" not in df.columns:
-        raise ValueError("Column 'Date' not found in sheet. تأكد إن الهيدر مكتوب Date بالظبط.")
-
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
-    df = df.dropna(subset=["Date"]).sort_values("Date")
-
+    # تأكد إن اسم العمود هو بالظبط Date زي في الشيت
+    df["date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["date"])
     return df
 
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"Error loading data: {e}")
+
+df = load_data()
+
+if df.empty:
+    st.error("No data found in Google Sheet.")
     st.stop()
 
-st.title("📊 Clinic Leads Dashboard")
+# نحسب أقل وأكبر تاريخ من الداتا
+min_date = df["date"].min().date()
+max_date = df["date"].max().date()
 
-# ========= فلتر التاريخ =========
-min_date = df["Date"].min()
-max_date = df["Date"].max()
+# سايدبار – Quick range
+st.sidebar.header("Filters")
+quick_range = st.sidebar.selectbox(
+    "Quick Range",
+    ["Today", "Last 7 days", "This month", "All"],
+    index=0,
+)
+
+today = max_date  # آخر يوم في الشيت
+
+if quick_range == "Today":
+    start_default = today
+    end_default = today
+elif quick_range == "Last 7 days":
+    start_default = max(today - dt.timedelta(days=6), min_date)
+    end_default = today
+elif quick_range == "This month":
+    start_default = today.replace(day=1)
+    end_default = today
+else:  # All
+    start_default = min_date
+    end_default = max_date
+
+# نضمن إن الديفولت جوه الرينج
+start_default = max(min_date, min(start_default, max_date))
+end_default = max(min_date, min(end_default, max_date))
+
+# Date inputs
+start_date = st.sidebar.date_input(
+    "Start date",
+    value=start_default,
+    min_value=min_date,
+    max_value=max_date,
+)
+
+end_date = st.sidebar.date_input(
+    "End date",
+    value=end_default,
+    min_value=start_date,  # ماينفعش تختار نهاية قبل البداية
+    max_value=max_date,
+)
+
+# نفلتر الداتا
+mask = (df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)
+df_filtered = df.loc[mask]
+
 
 with st.sidebar:
     st.header("⚙️ Filters")
