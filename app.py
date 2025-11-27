@@ -228,7 +228,7 @@ st.subheader("Platform Breakdown (per platform)")
 
 platform = st.selectbox(
     "اختر المنصّة:",
-    ["Instagram", "WhatsApp", "TikTok", "calls"],
+    ["Instagram", "WhatsApp", "TikTok", "Calls"],
     index=0,
 )
 
