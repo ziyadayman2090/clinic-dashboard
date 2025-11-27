@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=5)
 def load_data():
     df = pd.read_csv(SHEET_CSV_URL)
     
