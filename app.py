@@ -432,3 +432,70 @@ if agg_cols:
             st.info("لا توجد بيانات للحجوزات الأسبوعية لهذا البلاتفورم.")
 else:
     st.info("لا توجد أعمدة كافية لحساب بيانات الأسابيع لهذا البلاتفورم.")
+
+# ======================
+# Last 7 days per platform (daily)
+# ======================
+st.subheader("Last 7 days per platform")
+
+daily_platform = st.selectbox(
+    "Choose platform (last 7 days – daily view):",
+    ["Instagram", "WhatsApp", "TikTok", "Calls"],
+    index=0,
+    key="last7_platform",
+)
+
+daily_cols_map = PLATFORM_COLS[daily_platform]
+
+df_days = df_filtered.copy().sort_values("Date")
+
+# نجيب آخر ٧ أيام موجودين فعلاً في الداتا
+unique_days = df_days["Date"].dt.date.unique()
+last_7_days = list(unique_days[-7:])
+
+df_last7 = df_days[df_days["Date"].dt.date.isin(last_7_days)].copy()
+
+if df_last7.empty:
+    st.info("لا توجد بيانات لآخر ٧ أيام لهذا البلاتفورم.")
+else:
+    # نجمع على مستوى اليوم
+    agg_cols = []
+    if daily_cols_map["total"] in df_last7.columns:
+        agg_cols.append(daily_cols_map["total"])
+    if daily_cols_map["bookings"] in df_last7.columns:
+        agg_cols.append(daily_cols_map["bookings"])
+
+    if agg_cols:
+        day_agg = (
+            df_last7.groupby(df_last7["Date"].dt.date)[agg_cols]
+            .sum()
+            .reset_index()
+            .rename(columns={"Date": "day"})
+            .sort_values("day")
+        )
+
+        day_agg["Day"] = day_agg["day"].astype(str)
+
+        col_d1, col_d2 = st.columns(2)
+
+        # -------- Interactions per day --------
+        with col_d1:
+            st.caption("Interactions per day (last 7 days)")
+            total_col = daily_cols_map["total"]
+            if total_col in day_agg.columns:
+                chart_df = day_agg[["Day", total_col]].set_index("Day")
+                st.bar_chart(chart_df)
+            else:
+                st.info("لا توجد بيانات للتفاعل اليومي لهذا البلاتفورم.")
+
+        # -------- New bookings per day --------
+        with col_d2:
+            st.caption("New bookings per day (last 7 days)")
+            book_col = daily_cols_map["bookings"]
+            if book_col in day_agg.columns:
+                chart_df = day_agg[["Day", book_col]].set_index("Day")
+                st.bar_chart(chart_df)
+            else:
+                st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
+    else:
+        st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
