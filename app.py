@@ -30,7 +30,7 @@ def safe_sum_per_row(df, cols):
     return df[existing].sum(axis=1)
 
 
-@st.cache_data
+@st.cache_data(ttl=5)
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
