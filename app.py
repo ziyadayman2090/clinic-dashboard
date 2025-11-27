@@ -183,7 +183,7 @@ st.line_chart(trends_daily)
 st.markdown("---")
 
 # ========================
-# Customer Sentiment (الجديد)
+# Customer Sentiment (per platform)
 # ========================
 st.subheader("Customer Sentiment")
 
@@ -194,8 +194,8 @@ with left_col:
     ni_df = pd.DataFrame({
         "Platform": ["Calls", "WhatsApp", "Instagram", "TikTok"],
         "Count": [
-            safe_sum("Not Interested - Call"),
-            safe_sum("Not Interested - Whats"),
+            safe_sum("Not Interested - Call"),   # عدّل الاسم لو مختلف في الشيت
+            safe_sum("Not Interested - Whats"),  # مثلاً لو العمود اسمه "# Not Interested - Whats"
             safe_sum("Not Interested - Insta"),
             safe_sum("Not Interested - TikTok"),
         ],
@@ -207,7 +207,7 @@ with right_col:
     na_df = pd.DataFrame({
         "Platform": ["Calls", "WhatsApp", "Instagram", "TikTok"],
         "Count": [
-            safe_sum("Didn't Answer - Call"),
+            safe_sum("Didn't Answer - Call"),    # عدّل الأسماء حسب الشيت
             safe_sum("Didn't Answer - Whats"),
             safe_sum("Didn't Answer - Insta"),
             safe_sum("Didn't Answer - TikTok"),
