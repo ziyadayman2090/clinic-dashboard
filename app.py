@@ -1,257 +1,234 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 from datetime import datetime, timedelta
 
-# =========================
-#  Google Sheet CSV link
-# =========================
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8Z8QSRfb73Lk63htHUK31I59W5ZDaDTb81dtVK0Q61tczvnfGgGVQMYndidyxG8IdKuuVZ4o/pub?gid=0&single=true&output=csv"
-
+# ========= إعدادات أساسية =========
 st.set_page_config(
-    page_title="Clinic Dashboard",
+    page_title="Clinic Leads Dashboard",
     layout="wide"
 )
 
-# cache refresh every 5 seconds
-@st.cache_data(ttl=5)
-def load_data():
-    df = pd.read_csv(SHEET_CSV_URL)
+# حط هنا لينك الـ CSV بتاع Google Sheets
+GOOGLE_SHEET_CSV_URL = "YOUR_GOOGLE_SHEET_CSV_URL_HERE"
+# مثال:
+# GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/...../export?format=csv&gid=0"
 
-    # use "Date" column if exists, otherwise first column
-    date_col = "Date" if "Date" in df.columns else df.columns[0]
-    df["date"] = pd.to_datetime(df[date_col], dayfirst=True, errors="coerce")
+# ========= تحميل الداتا =========
+@st.cache_data(ttl=300)
+def load_data():
+    df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
+
+    # نتأكد إن فيه عمود Date و نحوله لتاريخ
+    if "Date" not in df.columns:
+        raise ValueError("Column 'Date' not found in sheet. تأكد إن الهيدر مكتوب Date بالظبط.")
+
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
+    df = df.dropna(subset=["Date"]).sort_values("Date")
 
     return df
 
+try:
+    df = load_data()
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    st.stop()
 
-df = load_data().sort_values("date")
+st.title("📊 Clinic Leads Dashboard")
 
-# =========================
-#   Date ranges
-# =========================
-today = datetime.now().date()
-week_start = today - timedelta(days=6)
-month_start = today.replace(day=1)
+# ========= فلتر التاريخ =========
+min_date = df["Date"].min()
+max_date = df["Date"].max()
 
-df_today = df[df["date"].dt.date == today]
-df_week = df[(df["date"].dt.date >= week_start) & (df["date"].dt.date <= today)]
-df_month = df[(df["date"].dt.date >= month_start) & (df["date"].dt.date <= today)]
+with st.sidebar:
+    st.header("⚙️ Filters")
 
-
-def sum_col(data, name):
-    """safe sum: returns 0 if column doesn't exist."""
-    return data[name].sum() if name in data.columns else 0
-
-
-def calc_metrics(data):
-    if data.empty:
-        return {
-            "total_interactions": 0,
-            "total_calls": 0,
-            "whatsapp_answered": 0,
-            "instagram_answered": 0,
-            "tiktok_answered": 0,
-            "new_bookings_total": 0,
-            "new_bookings_insta": 0,
-            "new_bookings_call": 0,
-            "new_bookings_whats": 0,
-            "new_bookings_tiktok": 0,
-            "asked_total": 0,
-            "asked_in": 0,
-            "asked_w": 0,
-            "asked_tik": 0,
-            "interested_total": 0,
-            "interested_insta": 0,
-            "interested_whats": 0,
-            "interested_tik": 0,
-        }
-
-    total_calls = sum_col(data, "Total Calls Received")
-    whatsapp_answered = sum_col(data, "WhatsApp Answered")
-    instagram_answered = sum_col(data, "Instagram Answered")
-    tiktok_answered = sum_col(data, "TikTok Answered")
-
-    new_insta = sum_col(data, "New Bookings - Insta")
-    new_call = sum_col(data, "New Bookings - Call")
-    new_whats = sum_col(data, "New Bookings - Whats")
-    new_tiktok = sum_col(data, "New Bookings - TikTok")
-
-    asked_in = sum_col(data, "Asked About Dates - In")
-    asked_w = sum_col(data, "Asked About Dates - W")
-    asked_tik = sum_col(data, "Asked About Dates - Tik")
-
-    int_insta = sum_col(data, "Interested - Insta")
-    int_whats = sum_col(data, "Interested - Whats")
-    int_tik = sum_col(data, "Interested - Tik")
-
-    total_interactions = (
-        total_calls + whatsapp_answered + instagram_answered + tiktok_answered
+    quick = st.selectbox(
+        "Quick Range",
+        ["All", "Today", "Last 7 Days", "This Month"],
+        index=1  # default Today
     )
 
-    new_total = new_insta + new_call + new_whats + new_tiktok
-    asked_total = asked_in + asked_w + asked_tik
-    interested_total = int_insta + int_whats + int_tik
+    today = datetime.now().date()
 
-    return {
-        "total_interactions": int(total_interactions),
-        "total_calls": int(total_calls),
-        "whatsapp_answered": int(whatsapp_answered),
-        "instagram_answered": int(instagram_answered),
-        "tiktok_answered": int(tiktok_answered),
-        "new_bookings_total": int(new_total),
-        "new_bookings_insta": int(new_insta),
-        "new_bookings_call": int(new_call),
-        "new_bookings_whats": int(new_whats),
-        "new_bookings_tiktok": int(new_tiktok),
-        "asked_total": int(asked_total),
-        "asked_in": int(asked_in),
-        "asked_w": int(asked_w),
-        "asked_tik": int(asked_tik),
-        "interested_total": int(interested_total),
-        "interested_insta": int(int_insta),
-        "interested_whats": int(int_whats),
-        "interested_tik": int(int_tik),
-    }
+    if quick == "Today":
+        start_date = today
+        end_date = today
+    elif quick == "Last 7 Days":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif quick == "This Month":
+        start_date = today.replace(day=1)
+        end_date = today
+    else:
+        start_date = min_date.date()
+        end_date = max_date.date()
 
+    start_date = st.date_input("Start date", value=start_date, min_value=min_date.date(), max_value=max_date.date())
+    end_date = st.date_input("End date", value=end_date, min_value=min_date.date(), max_value=max_date.date())
 
-# metrics for each period
-metrics_today = calc_metrics(df_today)
-metrics_week = calc_metrics(df_week)
-metrics_month = calc_metrics(df_month)
+# فلترة الداتا
+mask = (df["Date"].dt.date >= start_date) & (df["Date"].dt.date <= end_date)
+fdf = df[mask].copy()
 
-# =========================
-#   SIDEBAR
-# =========================
-st.sidebar.title("📊 Clinic Dashboard")
-st.sidebar.markdown("Dental Clinic — Daily / Weekly / Monthly")
-st.sidebar.markdown("---")
+if fdf.empty:
+    st.warning("No data in this date range.")
+    st.stop()
 
-period = st.sidebar.radio(
-    "Select period:",
-    ["Today", "Last 7 Days", "This Month"],
-    index=0,
+# ========= أسماء الأعمدة المستخدمة =========
+COLS = {
+    "calls": "Total Calls Received",
+    "wa_ans": "WhatsApp Answered",
+    "ig_ans": "Instagram Answered",
+    "tt_ans": "TikTok Answered",
+    "nb_ig": "New Bookings - Insta",
+    "nb_call": "New Bookings - Call",
+    "nb_wa": "New Bookings - Whats",
+    "nb_tt": "New Bookings - TikTok",
+    "ask_ig": "Asked About Dates - Insta",
+    "ask_wa": "Asked About Dates - Whats",
+    "ask_tt": "Asked About Dates - TikTok",
+    "int_ig": "Interested - Insta",
+    "int_wa": "Interested - Whats",
+    "int_tt": "Interested - TikTok",
+    "not_ig": "Not Interested - Insta",
+    "not_wa": "Not Interested - Whats",
+    "not_tt": "Not Interested - TikTok",
+    "inc_ig": "Incorrect Audience - Insta",
+    "inc_wa": "Incorrect Audience - Whats",
+    "inc_tt": "Incorrect Audience - TikTok",
+    "noans_ig": "Didn’t Answer - Insta",
+    "noans_wa": "Didn’t Answer - Whats",
+    "noans_tt": "Didn’t Answer - TikTok",
+}
+
+# لو عمود ناقص نخليه 0
+for c in COLS.values():
+    if c not in fdf.columns:
+        fdf[c] = 0
+
+# ========= إجماليات الفترة =========
+total_calls = int(fdf[COLS["calls"]].sum())
+total_wa = int(fdf[COLS["wa_ans"]].sum())
+total_ig = int(fdf[COLS["ig_ans"]].sum())
+total_tt = int(fdf[COLS["tt_ans"]].sum())
+
+total_new_bookings = int(
+    fdf[COLS["nb_ig"]].sum()
+    + fdf[COLS["nb_call"]].sum()
+    + fdf[COLS["nb_wa"]].sum()
+    + fdf[COLS["nb_tt"]].sum()
 )
 
-if period == "Today":
-    use_df = df_today
-    M = metrics_today
-elif period == "Last 7 Days":
-    use_df = df_week
-    M = metrics_week
-else:
-    use_df = df_month
-    M = metrics_month
+total_interested = int(
+    fdf[COLS["int_ig"]].sum()
+    + fdf[COLS["int_wa"]].sum()
+    + fdf[COLS["int_tt"]].sum()
+)
 
-# =========================
-#   MAIN LAYOUT
-# =========================
-st.title("🦷 Clinic Performance Dashboard")
+total_not_interested = int(
+    fdf[COLS["not_ig"]].sum()
+    + fdf[COLS["not_wa"]].sum()
+    + fdf[COLS["not_tt"]].sum()
+)
 
-# ---- KPI cards ----
+total_no_answer = int(
+    fdf[COLS["noans_ig"]].sum()
+    + fdf[COLS["noans_wa"]].sum()
+    + fdf[COLS["noans_tt"]].sum()
+)
+
+# ========= كروت الملخص =========
+st.subheader(f"Summary ({start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')})")
+
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Interactions", M["total_interactions"])
-c2.metric("New Bookings (Total)", M["new_bookings_total"])
-c3.metric("Asked About Dates", M["asked_total"])
-c4.metric("Interested (Total)", M["interested_total"])
+c1.metric("📞 Total Calls", total_calls)
+c2.metric("💬 WhatsApp Answered", total_wa)
+c3.metric("📸 Instagram Answered", total_ig)
+c4.metric("🎵 TikTok Answered", total_tt)
+
+c5, c6, c7, c8 = st.columns(4)
+c5.metric("✅ New Bookings (All)", total_new_bookings)
+c6.metric("🤝 Interested", total_interested)
+c7.metric("❌ Not Interested", total_not_interested)
+c8.metric("🕒 Didn’t Answer", total_no_answer)
 
 st.markdown("---")
 
-left, right = st.columns([2.2, 1])
+# ========= Breakdown بالقنوات =========
+st.subheader("New Bookings by Channel")
 
-# =========================
-#   LEFT COLUMN
-# =========================
-with left:
-    st.subheader("📈 Inquiry Trends")
+nb_breakdown = pd.DataFrame({
+    "Channel": ["Instagram", "Calls", "WhatsApp", "TikTok"],
+    "New Bookings": [
+        int(fdf[COLS["nb_ig"]].sum()),
+        int(fdf[COLS["nb_call"]].sum()),
+        int(fdf[COLS["nb_wa"]].sum()),
+        int(fdf[COLS["nb_tt"]].sum()),
+    ]
+})
 
-    trend_df = df.copy()
+col_a, col_b = st.columns(2)
 
-    # calculate per-row metrics using same column names as sheet
-    def sc(name):
-        return trend_df[name] if name in trend_df.columns else 0
+with col_a:
+    st.dataframe(nb_breakdown, use_container_width=True)
+    st.bar_chart(nb_breakdown.set_index("Channel"))
 
-    trend_df["total_interactions"] = (
-        sc("Total Calls Received")
-        + sc("WhatsApp Answered")
-        + sc("Instagram Answered")
-        + sc("TikTok Answered")
-    )
+with col_b:
+    st.subheader("Status Distribution (All Channels)")
+    status_totals = pd.DataFrame({
+        "Status": ["Interested", "Not Interested", "Incorrect Audience", "Didn’t Answer"],
+        "Count": [
+            total_interested,
+            total_not_interested,
+            int(
+                fdf[COLS["inc_ig"]].sum()
+                + fdf[COLS["inc_wa"]].sum()
+                + fdf[COLS["inc_tt"]].sum()
+            ),
+            total_no_answer
+        ]
+    })
+    st.dataframe(status_totals, use_container_width=True)
+    st.bar_chart(status_totals.set_index("Status"))
 
-    trend_df["new_bookings_total"] = (
-        sc("New Bookings - Insta")
-        + sc("New Bookings - Call")
-        + sc("New Bookings - Whats")
-        + sc("New Bookings - TikTok")
-    )
-
-    trend_df = trend_df.set_index("date")
-
-    st.line_chart(trend_df[["total_interactions", "new_bookings_total"]])
-
-    st.subheader("🔻 Conversion Funnel")
-
-    if not use_df.empty:
-        F = M  # just alias
-
-        funnel_df = pd.DataFrame(
-            {
-                "Stage": [
-                    "Total Interactions",
-                    "Asked About Dates",
-                    "Interested",
-                    "New Bookings",
-                ],
-                "Value": [
-                    F["total_interactions"],
-                    F["asked_total"],
-                    F["interested_total"],
-                    F["new_bookings_total"],
-                ],
-            }
-        ).set_index("Stage")
-
-        st.bar_chart(funnel_df)
-    else:
-        st.info("No data for the selected period.")
-
-# =========================
-#   RIGHT COLUMN
-# =========================
-with right:
-    st.subheader("😊 Customer Interest (Counts)")
-
-    interest_df = pd.DataFrame(
-        {
-            "Type": ["Interested", "Not Interested / Others"],
-            "Value": [
-                M["interested_total"],
-                max(M["total_interactions"] - M["interested_total"], 0),
-            ],
-        }
-    ).set_index("Type")
-
-    st.bar_chart(interest_df)
-
-    st.subheader("📱 Channels Breakdown")
-
-    channels_df = pd.DataFrame(
-        {
-            "Channel": ["Calls", "WhatsApp", "Instagram", "TikTok"],
-            "Count": [
-                M["total_calls"],
-                M["whatsapp_answered"],
-                M["instagram_answered"],
-                M["tiktok_answered"],
-            ],
-        }
-    ).set_index("Channel")
-
-    st.bar_chart(channels_df)
-
-# =========================
-#   RAW DATA
-# =========================
 st.markdown("---")
-st.subheader("📄 Latest 20 rows from sheet")
-st.dataframe(df.tail(20))
 
+# ========= Daily Trend =========
+st.subheader("Daily Trend - New Bookings Total")
+
+fdf["New Bookings Total"] = (
+    fdf[COLS["nb_ig"]]
+    + fdf[COLS["nb_call"]]
+    + fdf[COLS["nb_wa"]]
+    + fdf[COLS["nb_tt"]]
+)
+
+trend = fdf.groupby("Date")["New Bookings Total"].sum().reset_index()
+trend = trend.set_index("Date")
+
+st.line_chart(trend)
+
+# ========= جدول التفاصيل =========
+st.markdown("### Raw Daily Data")
+show_cols = [
+    "Date",
+    COLS["calls"],
+    COLS["wa_ans"],
+    COLS["ig_ans"],
+    COLS["tt_ans"],
+    COLS["nb_ig"],
+    COLS["nb_call"],
+    COLS["nb_wa"],
+    COLS["nb_tt"],
+    COLS["int_ig"],
+    COLS["int_wa"],
+    COLS["int_tt"],
+    COLS["not_ig"],
+    COLS["not_wa"],
+    COLS["not_tt"],
+    COLS["noans_ig"],
+    COLS["noans_wa"],
+    COLS["noans_tt"],
+]
+
+st.dataframe(fdf[show_cols].sort_values("Date"), use_container_width=True)
