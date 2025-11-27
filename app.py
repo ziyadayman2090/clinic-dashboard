@@ -104,18 +104,28 @@ def load_data():
 
 
 # ======================
+# الـ Sidebar – زرار الريفريش + الفلاتر
+# ======================
+with st.sidebar:
+    # زرار تحديث البيانات من الشيت
+    if st.button("🔄 Refresh data from Google Sheet"):
+        load_data.clear()   # نمسح الكاش بتاع الدالة
+        st.rerun()          # نرَن الصفحة من الأول
+
+    st.header("Filters")
+
+    # هنحمّل الداتا بعد ما ندي فرصة للريفريش لو اتداس
+    # (بس فعليًا load_data بيتنادى تحت برّه السايدبار)
+
+# ======================
 # تحميل الداتا
 # ======================
 df = load_data()
 min_date = df["Date"].min().date()
 max_date = df["Date"].max().date()
 
-# ======================
-# الـ Sidebar – فلاتر الزمن
-# ======================
+# نكمّل السايدبار بعد ما عرفنا min/max date
 with st.sidebar:
-    st.header("Filters")
-
     quick_range = st.selectbox(
         "Quick Range",
         ["Today", "Last 7 days", "This month", "All time"],
@@ -269,10 +279,8 @@ PLATFORM_COLS = {
 
 cols_map = PLATFORM_COLS[platform]
 
-
 def safe_col_sum(df, col_name):
     return int(df[col_name].sum()) if col_name in df.columns else 0
-
 
 total_platform_interactions = safe_col_sum(df_filtered, cols_map["total"])
 platform_bookings = safe_col_sum(df_filtered, cols_map["bookings"])
@@ -316,119 +324,51 @@ platform_summary = pd.DataFrame(
 st.bar_chart(platform_summary)
 
 # ======================
-# Interactions + New bookings per platform (جنب بعض)
+# Interactions per platform (كلها مع بعض)
 # ======================
-st.subheader("Platforms overview")
+st.subheader("Interactions per platform")
 
-col_left, col_right = st.columns(2)
+interactions_cols = {}
 
-# ------ Interactions per platform ------
-with col_left:
-    st.caption("Interactions per platform")
+if "Instagram Answered" in df_filtered.columns:
+    interactions_cols["Instagram"] = df_filtered["Instagram Answered"].sum()
+if "WhatsApp Answered" in df_filtered.columns:
+    interactions_cols["WhatsApp"] = df_filtered["WhatsApp Answered"].sum()
+if "TikTok Answered" in df_filtered.columns:
+    interactions_cols["TikTok"] = df_filtered["TikTok Answered"].sum()
+if "Total Calls Received" in df_filtered.columns:
+    interactions_cols["Calls"] = df_filtered["Total Calls Received"].sum()
 
-    interactions_cols = {}
-
-    if "Instagram Answered" in df_filtered.columns:
-        interactions_cols["Instagram"] = df_filtered["Instagram Answered"].sum()
-    if "WhatsApp Answered" in df_filtered.columns:
-        interactions_cols["WhatsApp"] = df_filtered["WhatsApp Answered"].sum()
-    if "TikTok Answered" in df_filtered.columns:
-        interactions_cols["TikTok"] = df_filtered["TikTok Answered"].sum()
-    if "Total Calls Received" in df_filtered.columns:
-        interactions_cols["Calls"] = df_filtered["Total Calls Received"].sum()
-
-    if interactions_cols:
-        interactions_df = (
-            pd.DataFrame(list(interactions_cols.items()), columns=["Platform", "Count"])
-            .set_index("Platform")
-        )
-        st.bar_chart(interactions_df)
-    else:
-        st.info("لا توجد أعمدة تفاعل للمنصات في الشيت.")
-
-# ------ New bookings per platform ------
-with col_right:
-    st.caption("New bookings per platform")
-
-    bookings_cols = {}
-
-    if "New Bookings - Insta" in df_filtered.columns:
-        bookings_cols["Instagram"] = df_filtered["New Bookings - Insta"].sum()
-    if "New Bookings - Whats" in df_filtered.columns:
-        bookings_cols["WhatsApp"] = df_filtered["New Bookings - Whats"].sum()
-    if "New Bookings - TikTok" in df_filtered.columns:
-        bookings_cols["TikTok"] = df_filtered["New Bookings - TikTok"].sum()
-    if "New Bookings - Call" in df_filtered.columns:
-        bookings_cols["Calls"] = df_filtered["New Bookings - Call"].sum()
-
-    if bookings_cols:
-        bookings_df = (
-            pd.DataFrame(list(bookings_cols.items()), columns=["Platform", "Count"])
-            .set_index("Platform")
-        )
-        st.bar_chart(bookings_df)
-    else:
-        st.info("لا توجد أعمدة New Bookings للمنصات في الشيت.")
-
-# ======================
-# Last 4 weeks per platform (بلاتفورم واحد × ٤ أسابيع)
-# ======================
-st.subheader("Last 4 weeks per platform")
-
-weekly_platform = st.selectbox(
-    "Choose platform (weekly view):",
-    ["Instagram", "WhatsApp", "TikTok", "Calls"],
-    index=0,
-)
-
-# نستخدم نفس الخريطة بتاعة PLATFORM_COLS اللي فوق
-weekly_cols_map = PLATFORM_COLS[weekly_platform]
-
-# نجهز بيانات الأسابيع
-df_weeks = df_filtered.copy()
-df_weeks["week_start"] = df_weeks["Date"].dt.to_period("W").apply(
-    lambda r: r.start_time.date()
-)
-
-# نجمع على مستوى الأسبوع للتفاعل والحجوزات
-agg_cols = []
-if weekly_cols_map["total"] in df_weeks.columns:
-    agg_cols.append(weekly_cols_map["total"])
-if weekly_cols_map["bookings"] in df_weeks.columns:
-    agg_cols.append(weekly_cols_map["bookings"])
-
-if agg_cols:
-    week_agg = (
-        df_weeks.groupby("week_start")[agg_cols]
-        .sum()
-        .reset_index()
-        .sort_values("week_start")
+if interactions_cols:
+    interactions_df = (
+        pd.DataFrame(list(interactions_cols.items()), columns=["Platform", "Count"])
+        .set_index("Platform")
     )
-
-    # آخر ٤ أسابيع
-    last_4 = week_agg.tail(4).copy()
-    last_4["Week"] = last_4["week_start"].astype(str)
-
-    col_w1, col_w2 = st.columns(2)
-
-    # -------- Interactions per week --------
-    with col_w1:
-        st.caption("Interactions per week")
-        total_col = weekly_cols_map["total"]
-        if total_col in last_4.columns:
-            chart_df = last_4[["Week", total_col]].set_index("Week")
-            st.bar_chart(chart_df)
-        else:
-            st.info("لا توجد بيانات للتفاعل الأسبوعي لهذا البلاتفورم.")
-
-    # -------- New bookings per week --------
-    with col_w2:
-        st.caption("New bookings per week")
-        book_col = weekly_cols_map["bookings"]
-        if book_col in last_4.columns:
-            chart_df = last_4[["Week", book_col]].set_index("Week")
-            st.bar_chart(chart_df)
-        else:
-            st.info("لا توجد بيانات للحجوزات الأسبوعية لهذا البلاتفورم.")
+    st.bar_chart(interactions_df)
 else:
-    st.info("لا توجد أعمدة كافية لحساب بيانات الأسابيع لهذا البلاتفورم.")
+    st.info("لا توجد أعمدة تفاعل للمنصات في الشيت.")
+
+# ======================
+# New bookings per platform
+# ======================
+st.subheader("New bookings per platform")
+
+bookings_cols = {}
+
+if "New Bookings - Insta" in df_filtered.columns:
+    bookings_cols["Instagram"] = df_filtered["New Bookings - Insta"].sum()
+if "New Bookings - Whats" in df_filtered.columns:
+    bookings_cols["WhatsApp"] = df_filtered["New Bookings - Whats"].sum()
+if "New Bookings - TikTok" in df_filtered.columns:
+    bookings_cols["TikTok"] = df_filtered["New Bookings - TikTok"].sum()
+if "New Bookings - Call" in df_filtered.columns:
+    bookings_cols["Calls"] = df_filtered["New Bookings - Call"].sum()
+
+if bookings_cols:
+    bookings_df = (
+        pd.DataFrame(list(bookings_cols.items()), columns=["Platform", "Count"])
+        .set_index("Platform")
+    )
+    st.bar_chart(bookings_df)
+else:
+    st.info("لا توجد أعمدة New Bookings للمنصات في الشيت.")
