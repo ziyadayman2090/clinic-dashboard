@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # ==========================
-# 1) إعداد الرابط بتاع الشيت
+# 1) رابط الشيت
 # ==========================
 GOOGLE_SHEET_CSV_URL = (
     "https://docs.google.com/spreadsheets/d/e/"
@@ -12,17 +12,20 @@ GOOGLE_SHEET_CSV_URL = (
 )
 
 # ==========================
-# 2) تحميل الداتا من الشيت
+# 2) تحميل الداتا
 # ==========================
 @st.cache_data(ttl=300)
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
-    # نتأكد إن العمود اسمه بالظبط "Date" في الشيت
+    # نتأكد إن فيه عمود اسمه Date
+    if "Date" not in df.columns:
+        raise ValueError("Column 'Date' not found in Google Sheet.")
+
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Date"])
 
-    # نحول كل الأعمدة الرقمية لأرقام (لو في فراغات أو نصوص)
+    # تحويل كل الأعمدة الرقمية لأرقام
     for col in df.columns:
         if col != "Date":
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
@@ -32,15 +35,19 @@ def load_data():
 
 df = load_data()
 
-# لو مفيش داتا خالص
 if df.empty:
     st.error("No data loaded from Google Sheet. Please check the CSV URL or sharing settings.")
     st.stop()
 
-# ====================================================
-# 3) نحسب شوية أعمدة مجمعة عشان الرياحيت و الجرافيكس
-# ====================================================
-# إجمالي كل الإنترأكشنز (Calls + WhatsApp + Instagram + TikTok)
+# ==========================
+# 3) نحدد الأعمدة بالـ pattern
+# ==========================
+def find_cols_contains(keyword: str):
+    """ترجع كل الأعمدة اللي اسمها فيه الكلمة دي (case-insensitive)."""
+    keyword = keyword.lower()
+    return [c for c in df.columns if keyword in c.lower()]
+
+# الأعمدة الرئيسية اللي احنا متأكدين من اسمها
 INTERACTION_COLS = [
     "Total Calls Received",
     "WhatsApp Answered",
@@ -48,50 +55,55 @@ INTERACTION_COLS = [
     "TikTok Answered",
 ]
 
-# إجمالي الـ New Bookings
-NEW_BOOKING_COLS = [
-    "New Bookings - Insta",
-    "New Bookings - Call",
-    "New Bookings - Whats",
-    "New Bookings - TikTok",
-]
+# ناخد الأعمدة التانية بالـ pattern
+NEW_BOOKING_COLS = find_cols_contains("new bookings")
 
+ASKED_DATES_COLS = find_cols_contains("asked about dates")
+
+# interested من غير Not
 INTERESTED_COLS = [
-    "Interested - Insta",
-    "Interested - Whats",
-    "Interested - TikTok",
+    c
+    for c in df.columns
+    if "interested" in c.lower() and "not" not in c.lower()
 ]
 
-NOT_INTERESTED_COLS = [
-    "Not Interested - Insta",
-    "Not Interested - Whats",
-    "Not Interested - TikTok",
-]
+NOT_INTERESTED_COLS = find_cols_contains("not interested")
+INCORRECT_AUDIENCE_COLS = find_cols_contains("incorrect audience")
+NO_REPLY_COLS = find_cols_contains("answer back")  # هيكفي مهما كانت الـ capital / '
 
-INCORRECT_AUDIENCE_COLS = [
-    "Incorrect Audience - Insta",
-    "Incorrect Audience - Whats",
-    "Incorrect Audience - TikTok",
-]
-
-NO_REPLY_COLS = [
-    "Didn’t Answer Back - Insta",
-    "Didn’t Answer Back - Whats",
-    "Didn’t Answer Back - TikTok",
-]
-
-# لو أسماء الأعمدة مختلفة عندك في الشيت عدل الأسماء فوق بس 👆
-
+# ==========================
+# 4) نحسب الأعمدة المجمّعة
+# ==========================
 df["total_interactions"] = df[INTERACTION_COLS].sum(axis=1)
-df["total_new_bookings"] = df[NEW_BOOKING_COLS].sum(axis=1)
-df["total_interested"] = df[INTERESTED_COLS].sum(axis=1)
-df["total_not_interested"] = df[NOT_INTERESTED_COLS].sum(axis=1)
-df["total_incorrect_audience"] = df[INCORRECT_AUDIENCE_COLS].sum(axis=1)
-df["total_no_reply"] = df[NO_REPLY_COLS].sum(axis=1)
 
-# ====================================
-# 4) إعداد صفحة Streamlit و الفلاتر
-# ====================================
+if NEW_BOOKING_COLS:
+    df["total_new_bookings"] = df[NEW_BOOKING_COLS].sum(axis=1)
+else:
+    df["total_new_bookings"] = 0
+
+if INTERESTED_COLS:
+    df["total_interested"] = df[INTERESTED_COLS].sum(axis=1)
+else:
+    df["total_interested"] = 0
+
+if NOT_INTERESTED_COLS:
+    df["total_not_interested"] = df[NOT_INTERESTED_COLS].sum(axis=1)
+else:
+    df["total_not_interested"] = 0
+
+if INCORRECT_AUDIENCE_COLS:
+    df["total_incorrect_audience"] = df[INCORRECT_AUDIENCE_COLS].sum(axis=1)
+else:
+    df["total_incorrect_audience"] = 0
+
+if NO_REPLY_COLS:
+    df["total_no_reply"] = df[NO_REPLY_COLS].sum(axis=1)
+else:
+    df["total_no_reply"] = 0
+
+# ==========================
+# 5) إعداد صفحة Streamlit
+# ==========================
 st.set_page_config(
     page_title="Clinic Leads Dashboard",
     layout="wide",
@@ -100,8 +112,8 @@ st.set_page_config(
 st.sidebar.title("Filters")
 
 min_date = df["Date"].min().date()
-max_date = df["Date"].max().date()  # آخر يوم في الشيت هنعتبره "اليوم"
-today = max_date
+max_date = df["Date"].max().date()
+today = max_date  # هنعتبر آخر يوم في الشيت هو النهارده
 
 quick_range = st.sidebar.selectbox(
     "Quick Range",
@@ -109,7 +121,6 @@ quick_range = st.sidebar.selectbox(
     index=0,
 )
 
-# نحدد الافتراضي حسب الـ Quick Range
 if quick_range == "Today":
     start_default = today
     end_default = today
@@ -119,7 +130,7 @@ elif quick_range == "Last 7 days":
 elif quick_range == "This month":
     start_default = today.replace(day=1)
     end_default = today
-else:  # All time
+else:
     start_default = min_date
     end_default = max_date
 
@@ -137,12 +148,10 @@ end_date = st.sidebar.date_input(
     max_value=max_date,
 )
 
-# لو المستخدم اختار End قبل Start نعدّلهم
 if end_date < start_date:
     st.sidebar.warning("End date is before start date. Dates have been swapped.")
     start_date, end_date = end_date, start_date
 
-# نفلتر الداتا
 mask = (df["Date"].dt.date >= start_date) & (df["Date"].dt.date <= end_date)
 filtered = df.loc[mask].copy()
 
@@ -150,10 +159,9 @@ if filtered.empty:
     st.warning("No data available for the selected date range.")
     st.stop()
 
-# ====================================
-# 5) الـ Header و الكروت الأساسية
-# ====================================
-
+# ==========================
+# 6) الكروت الأساسية
+# ==========================
 st.title("📊 Clinic Leads Dashboard")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -172,9 +180,9 @@ with col4:
 
 st.markdown("---")
 
-# ==============================
-# 6) تريندز يومية (Line Chart)
-# ==============================
+# ==========================
+# 7) تريند يومي
+# ==========================
 st.subheader("📈 Inquiry Trends")
 
 daily = (
@@ -183,28 +191,27 @@ daily = (
     ]
     .sum()
     .reset_index()
+    .sort_values("Date")
 )
 
-daily = daily.sort_values("Date")
+st.line_chart(daily.set_index("Date"))
 
-trend_df = daily.set_index("Date")
-
-st.line_chart(trend_df)
-
-# ===================================
-# 7) Customer Sentiment Breakdown
-# ===================================
+# ==========================
+# 8) Customer Sentiment
+# ==========================
 st.subheader("😊 Customer Sentiment")
+
+if ASKED_DATES_COLS:
+    asked_dates_sum = filtered[ASKED_DATES_COLS].sum().sum()
+else:
+    asked_dates_sum = 0
 
 sentiment_totals = {
     "Positive (Bookings + Interested)": int(
         filtered["total_new_bookings"].sum() + filtered["total_interested"].sum()
     ),
     "Neutral (Asked Dates + No Reply)": int(
-        filtered[["Asked About Dates - Insta",
-                  "Asked About Dates - Whats",
-                  "Asked About Dates - TikTok"]].sum().sum()
-        + filtered["total_no_reply"].sum()
+        asked_dates_sum + filtered["total_no_reply"].sum()
     ),
     "Negative (Not Interested + Wrong Audience)": int(
         filtered["total_not_interested"].sum()
@@ -212,15 +219,18 @@ sentiment_totals = {
     ),
 }
 
-sentiment_df = pd.DataFrame(
-    {"Sentiment": list(sentiment_totals.keys()), "Count": list(sentiment_totals.values())}
-).set_index("Sentiment")
+sentiment_df = (
+    pd.DataFrame(
+        {"Sentiment": list(sentiment_totals.keys()), "Count": list(sentiment_totals.values())}
+    )
+    .set_index("Sentiment")
+)
 
 st.bar_chart(sentiment_df)
 
-# ===================================
-# 8) Platform Performance Breakdown
-# ===================================
+# ==========================
+# 9) Platform Breakdown
+# ==========================
 st.subheader("📱 Platform Breakdown")
 
 platform_data = pd.DataFrame(
@@ -233,10 +243,18 @@ platform_data = pd.DataFrame(
             int(filtered["TikTok Answered"].sum()),
         ],
         "New Bookings": [
-            int(filtered["New Bookings - Call"].sum()),
-            int(filtered["New Bookings - Whats"].sum()),
-            int(filtered["New Bookings - Insta"].sum()),
-            int(filtered["New Bookings - TikTok"].sum()),
+            int(filtered[find_cols_contains("new bookings - call")[0]].sum())
+            if find_cols_contains("new bookings - call")
+            else 0,
+            int(filtered[find_cols_contains("new bookings - whats")[0]].sum())
+            if find_cols_contains("new bookings - whats")
+            else 0,
+            int(filtered[find_cols_contains("new bookings - insta")[0]].sum())
+            if find_cols_contains("new bookings - insta")
+            else 0,
+            int(filtered[find_cols_contains("new bookings - tiktok")[0]].sum())
+            if find_cols_contains("new bookings - tiktok")
+            else 0,
         ],
     }
 )
@@ -245,17 +263,18 @@ col_a, col_b = st.columns(2)
 
 with col_a:
     st.markdown("**Interactions per platform**")
-    st.bar_chart(
-        platform_data.set_index("Platform")["Interactions"]
-    )
+    st.bar_chart(platform_data.set_index("Platform")["Interactions"])
 
 with col_b:
     st.markdown("**New bookings per platform**")
-    st.bar_chart(
-        platform_data.set_index("Platform")["New Bookings"]
-    )
+    st.bar_chart(platform_data.set_index("Platform")["New Bookings"])
 
-# ===================================
+# ==========================
+# 10) جدول الداتا
+# ==========================
+with st.expander("Show raw filtered data"):
+    st.dataframe(filtered.reset_index(drop=True))
+
 # 9) جدول الداتا بعد الفلترة (اختياري)
 # ===================================
 with st.expander("Show raw filtered data"):
