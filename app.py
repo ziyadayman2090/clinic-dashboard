@@ -9,8 +9,7 @@ st.set_page_config(
 )
 
 # حط هنا لينك الـ CSV بتاع Google Sheets
-GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8Z8QSRfb73Lk63htHUK31I59W5ZDaDTb81dtVK0Q61tczvnfGgGVQMYndidyxG8IdKuuVZ4o/pub?gid=551101663&single=true&output=csv"
-
+GOOGLE_SHEET_CSV_URL = https://docs.google.com/spreadsheets/d/e/2PACX-1vTbn8mE8Z8QSRfb73Lk63htHUK31I59W5ZDaDTb81dtVK0Q61tczvnfGgGVQMYndidyxG8IdKuuVZ4o/pub?gid=551101663&single=true&output=csv
 # مثال:
 # GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/...../export?format=csv&gid=0"
 
