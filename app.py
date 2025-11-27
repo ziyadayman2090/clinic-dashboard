@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.caption("🔥 DASHBOARD VERSION 3 – per-platform sentiment")
+st.caption("🔥per-platform sentiment")
 
 # حط هنا لينك الـ CSV بتاع Google Sheet (زي ما انت بعتهولي)
 GOOGLE_SHEET_CSV_URL = (
