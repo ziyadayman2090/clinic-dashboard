@@ -242,4 +242,3 @@ if platform_data:
     st.bar_chart(plat_df)
 else:
     st.info("مش لاقي أعمدة إجمالي الإنترآكشن لكل بلاتفورم.")
-ue))
