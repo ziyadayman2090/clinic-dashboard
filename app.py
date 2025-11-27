@@ -227,7 +227,7 @@ st.bar_chart(sentiment_df)
 st.subheader("Platform Breakdown (per platform)")
 
 platform = st.selectbox(
-    "اختر المنصّة:",
+    " Choose the platform:",
     ["Instagram", "WhatsApp", "TikTok", "Calls"],
     index=0,
 )
