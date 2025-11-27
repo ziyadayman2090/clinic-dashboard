@@ -12,12 +12,19 @@ st.set_page_config(
 
 @st.cache_data(ttl=60)
 def load_data():
+    # نقرأ الشيت
     df = pd.read_csv(SHEET_CSV_URL)
-    df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+
+    # أول عمود هو التاريخ حتى لو اسمه مختلف (Date أو أي حاجة)
+    first_col = df.columns[0]
+    df["date"] = pd.to_datetime(df[first_col], dayfirst=True, errors="coerce")
+
     return df
 
+# نرتب حسب التاريخ
 df = load_data().sort_values("date")
 
+# تعريف تواريخ اليوم / اسبوع / شهر
 today = datetime.now().date()
 week_start = today - timedelta(days=6)
 month_start = today.replace(day=1)
@@ -27,33 +34,39 @@ df_week = df[(df["date"].dt.date >= week_start) & (df["date"].dt.date <= today)]
 df_month = df[(df["date"].dt.date >= month_start) & (df["date"].dt.date <= today)]
 
 def calc_totals(data):
+    # لو مفيش بيانات
     if data.empty:
         return 0, 0, 0, 0
+
+    # نحاول نستخدم الأعمدة لو موجودة، ولو مش موجودة نخليها 0
+    def col_sum(name):
+        return data[name].sum() if name in data.columns else 0
+
     total_interactions = (
-        data["total_calls"]
-        + data["whatsapp_answered"]
-        + data["instagram_answered"]
-        + data["tiktok_answered"]
-    ).sum()
+        col_sum("total_calls") +
+        col_sum("whatsapp_answered") +
+        col_sum("instagram_answered") +
+        col_sum("tiktok_answered")
+    )
 
     total_new = (
-        data["new_insta"]
-        + data["new_call"]
-        + data["new_whatsapp"]
-        + data["new_tiktok"]
-    ).sum()
+        col_sum("new_insta") +
+        col_sum("new_call") +
+        col_sum("new_whatsapp") +
+        col_sum("new_tiktok")
+    )
 
     total_interested = (
-        data["interested_insta"]
-        + data["interested_whatsapp"]
-        + data["interested_tiktok"]
-    ).sum()
+        col_sum("interested_insta") +
+        col_sum("interested_whatsapp") +
+        col_sum("interested_tiktok")
+    )
 
     total_not = (
-        data["not_insta"]
-        + data["not_whatsapp"]
-        + data["not_tiktok"]
-    ).sum()
+        col_sum("not_insta") +
+        col_sum("not_whatsapp") +
+        col_sum("not_tiktok")
+    )
 
     return int(total_interactions), int(total_new), int(total_interested), int(total_not)
 
@@ -61,6 +74,7 @@ today_int, today_new, today_intst, today_not = calc_totals(df_today)
 week_int, week_new, week_intst, week_not = calc_totals(df_week)
 month_int, month_new, month_intst, month_not = calc_totals(df_month)
 
+# Sidebar
 st.sidebar.title("📊 Clinic Dashboard")
 st.sidebar.markdown("**Dental Clinic – Daily, Weekly, Monthly**")
 st.sidebar.markdown("---")
@@ -83,6 +97,7 @@ else:
 
 st.title("🦷 Clinic Performance Dashboard")
 
+# الكروت الرئيسية
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total Interactions", p_int)
 k2.metric("New Bookings", p_new)
@@ -97,17 +112,21 @@ with left_col:
     st.subheader("📈 Inquiry Trends")
 
     trend_df = df.copy()
+    # لو الأعمدة مش موجودة هنحط قيم 0
+    def col_or_zero(name):
+        return trend_df[name] if name in trend_df.columns else 0
+
     trend_df["total_interactions"] = (
-        trend_df["total_calls"]
-        + trend_df["whatsapp_answered"]
-        + trend_df["instagram_answered"]
-        + trend_df["tiktok_answered"]
+        col_or_zero("total_calls") +
+        col_or_zero("whatsapp_answered") +
+        col_or_zero("instagram_answered") +
+        col_or_zero("tiktok_answered")
     )
     trend_df["total_new_bookings"] = (
-        trend_df["new_insta"]
-        + trend_df["new_call"]
-        + trend_df["new_whatsapp"]
-        + trend_df["new_tiktok"]
+        col_or_zero("new_insta") +
+        col_or_zero("new_call") +
+        col_or_zero("new_whatsapp") +
+        col_or_zero("new_tiktok")
     )
     trend_df = trend_df.set_index("date")
 
@@ -116,19 +135,22 @@ with left_col:
     st.subheader("🔻 Sales / Inquiry Funnel")
 
     if not use_df.empty:
+        def ucol(name):
+            return use_df[name].sum() if name in use_df.columns else 0
+
         leads = (
-            use_df["total_calls"]
-            + use_df["whatsapp_answered"]
-            + use_df["instagram_answered"]
-            + use_df["tiktok_answered"]
-        ).sum()
+            ucol("total_calls") +
+            ucol("whatsapp_answered") +
+            ucol("instagram_answered") +
+            ucol("tiktok_answered")
+        )
         interested = p_intst
         bookings = p_new
         no_reply = (
-            use_df["noreply_insta"]
-            + use_df["noreply_whatsapp"]
-            + use_df["noreply_tiktok"]
-        ).sum()
+            ucol("noreply_insta") +
+            ucol("noreply_whatsapp") +
+            ucol("noreply_tiktok")
+        )
 
         funnel_df = pd.DataFrame({
             "Stage": ["Leads", "Interested", "Bookings", "No Reply"],
@@ -156,13 +178,16 @@ with right_col:
     st.subheader("📱 Platform Snapshot")
 
     if not use_df.empty:
+        def ucol(name):
+            return use_df[name].sum() if name in use_df.columns else 0
+
         plat_df = pd.DataFrame({
             "Platform": ["Calls", "WhatsApp", "Instagram", "TikTok"],
             "Count": [
-                use_df["total_calls"].sum(),
-                use_df["whatsapp_answered"].sum(),
-                use_df["instagram_answered"].sum(),
-                use_df["tiktok_answered"].sum()
+                ucol("total_calls"),
+                ucol("whatsapp_answered"),
+                ucol("instagram_answered"),
+                ucol("tiktok_answered")
             ]
         }).set_index("Platform")
 
@@ -173,3 +198,4 @@ with right_col:
 st.markdown("---")
 st.subheader("📄 آخر 20 صف من البيانات")
 st.dataframe(df.tail(20))
+
