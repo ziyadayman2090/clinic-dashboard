@@ -381,38 +381,54 @@ weekly_platform = st.selectbox(
     index=0,
 )
 
-weekly_metric = st.radio(
-    "Metric:",
-    ["Interactions", "New bookings"],
-    index=0,
-    horizontal=True,
+# نستخدم نفس الخريطة بتاعة PLATFORM_COLS اللي فوق
+weekly_cols_map = PLATFORM_COLS[weekly_platform]
+
+# نجهز بيانات الأسابيع
+df_weeks = df_filtered.copy()
+df_weeks["week_start"] = df_weeks["Date"].dt.to_period("W").apply(
+    lambda r: r.start_time.date()
 )
 
-# نحدد العمود اللي هنستخدمه حسب البلاتفورم + المقياس
-weekly_cols_map = PLATFORM_COLS[weekly_platform]
-if weekly_metric == "Interactions":
-    weekly_col_name = weekly_cols_map["total"]
-else:  # "New bookings"
-    weekly_col_name = weekly_cols_map["bookings"]
+# نجمع على مستوى الأسبوع للتفاعل والحجوزات
+agg_cols = []
+if weekly_cols_map["total"] in df_weeks.columns:
+    agg_cols.append(weekly_cols_map["total"])
+if weekly_cols_map["bookings"] in df_weeks.columns:
+    agg_cols.append(weekly_cols_map["bookings"])
 
-# نتأكد إن العمود موجود
-if weekly_col_name in df_filtered.columns:
-    df_weeks = df_filtered.copy()
-    # نجيب بداية كل أسبوع كـ label
-    df_weeks["week_start"] = df_weeks["Date"].dt.to_period("W").apply(
-        lambda r: r.start_time.date()
-    )
-
-    weekly_group = (
-        df_weeks.groupby("week_start")[weekly_col_name]
+if agg_cols:
+    week_agg = (
+        df_weeks.groupby("week_start")[agg_cols]
         .sum()
         .reset_index()
         .sort_values("week_start")
     )
 
-    # نجيب آخر ٤ أسابيع بس
-    last_4_weeks = weekly_group.tail(4).set_index("week_start")
+    # آخر ٤ أسابيع
+    last_4 = week_agg.tail(4).copy()
+    last_4["Week"] = last_4["week_start"].astype(str)
 
-    st.bar_chart(last_4_weeks)
+    col_w1, col_w2 = st.columns(2)
+
+    # -------- Interactions per week --------
+    with col_w1:
+        st.caption("Interactions per week")
+        total_col = weekly_cols_map["total"]
+        if total_col in last_4.columns:
+            chart_df = last_4[["Week", total_col]].set_index("Week")
+            st.bar_chart(chart_df)
+        else:
+            st.info("لا توجد بيانات للتفاعل الأسبوعي لهذا البلاتفورم.")
+
+    # -------- New bookings per week --------
+    with col_w2:
+        st.caption("New bookings per week")
+        book_col = weekly_cols_map["bookings"]
+        if book_col in last_4.columns:
+            chart_df = last_4[["Week", book_col]].set_index("Week")
+            st.bar_chart(chart_df)
+        else:
+            st.info("لا توجد بيانات للحجوزات الأسبوعية لهذا البلاتفورم.")
 else:
-    st.info(f"العمود '{weekly_col_name}' غير موجود في الشيت للمنصّة {weekly_platform}.")
+    st.info("لا توجد أعمدة كافية لحساب بيانات الأسابيع لهذا البلاتفورم.")
