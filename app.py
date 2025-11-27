@@ -228,7 +228,7 @@ st.subheader("Platform Breakdown (per platform)")
 
 platform = st.selectbox(
     "اختر المنصّة:",
-    ["Instagram", "WhatsApp", "TikTok"],
+    ["Instagram", "WhatsApp", "TikTok", "calls"],
     index=0,
 )
 
@@ -256,6 +256,14 @@ PLATFORM_COLS = {
         "interested": "Interested - TikTok",
         "not_interested": "Not Interested - TikTok",
         "no_reply": "Didn’t Answer - TikTok",
+    },
+    "Calls": {
+        "total": "Total Calls Received",
+        "bookings": "New Bookings - Call",
+        "asked_dates": "Asked About Dates - Call",
+        "interested": "Interested - Call",
+        "not_interested": "Not Interested - Call",
+        "no_reply": "Didn’t Answer - Call",
     },
 }
 
