@@ -239,20 +239,28 @@ with tab_overview:
     # --- Daily trend + Sentiment جنب بعض ---
     col_trend, col_sent = st.columns(2)
 
-    with col_trend:
-        st.subheader("Inquiry Trends")
-        daily = (
-            df_filtered.groupby("Date")[
-                ["total_interactions", "total_interested",
-                 "total_new_bookings", "total_not_interested"]
-            ]
-            .sum()
-            .reset_index()
-            Trend_chart=
-                       alt.chart(daily).mark_line(point=True).encode(x="Date:T",
-                        
-        )
-        st.line_chart(daily)
+    
+with col_trend:
+    st.subheader("Inquiry Trends")
+    daily = (
+        df_filtered.groupby("Date")[
+            ["total_interactions", "total_interested",
+             "total_new_bookings", "total_not_interested"]
+        ]
+        .sum()
+        .reset_index()
+    )
+
+    # Altair chart
+    trend_chart = alt.Chart(daily).mark_line(point=True).encode(
+        x="Date:T",
+        y="total_interactions:Q",
+        tooltip=["Date", "total_interactions"]
+    ).properties(width="container")
+
+    st.altair_chart(trend_chart, use_container_width=True)
+
+        
 
     with col_sent:
         st.subheader("Customer Sentiment")
@@ -272,10 +280,15 @@ with tab_overview:
                     "Positive (Bookings + Interested)",
                 ],
                 "Count": [negative_total, neutral_total, positive_total],
-            }
-        ).set_index("Sentiment")
-
-        st.bar_chart(sentiment_df)
+            })
+        sentiment_chart=
+        alt.Chart(sentiment_df).mark_bar().encode(
+            x="Sentiment:N",
+            y="Count:Q",
+            color="Sentiment:N",
+            tooltip=["Sentiment","Count"]
+                     ).properties(width="container")
+        st.altair_chart(sentiment_chart,use_container_width=True)
 
 # ======================
 # 2) PLATFORMS TAB
