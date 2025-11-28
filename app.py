@@ -177,23 +177,7 @@ total_interested = int(df_filtered["total_interested"].sum())
 total_not_interested = int(df_filtered["total_not_interested"].sum())
 total_no_reply = int(df_filtered["total_no_reply"].sum())
 
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Total Interactions", total_interactions)
-c2.metric("New Bookings", total_new_bookings)
-c3.metric("Interested", total_interested)
-c4.metric("Not Interested", total_not_interested)
-c5.metric("Didn't Answer", total_no_reply)
-
-st.markdown("---")
-
-row_1col1,row1_col2=st.columns(2)
-
-total_interactions = int(df_filtered["total_interactions"].sum())
-total_new_bookings = int(df_filtered["total_new_bookings"].sum())
-total_interested = int(df_filtered["total_interested"].sum())
-total_not_interested = int(df_filtered["total_not_interested"].sum())
-total_no_reply = int(df_filtered["total_no_reply"].sum())
-
+# Only create ONE set of metrics, not two
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Interactions", total_interactions)
 c2.metric("New Bookings", total_new_bookings)
@@ -208,40 +192,97 @@ row1_col1, row1_col2 = st.columns(2)
 
 with row1_col1:
     st.subheader("Inquiry Trends")
-    daily = df_filtered.groupby("Date")[["total_interactions", "total_interested", "total_new_bookings", "total_not_interested"]].sum().reset_index()
+    
+    # Simplify - only show key metrics
+    daily = df_filtered.groupby("Date")[
+        ["total_interactions", "total_new_bookings", "total_interested"]
+    ].sum().reset_index()
+    
     daily_melted = daily.melt(id_vars=["Date"], var_name="Metric", value_name="Value")
     
+    # Clean up metric names for better display
+    daily_melted["Metric"] = daily_melted["Metric"].replace({
+        "total_interactions": "Total Interactions",
+        "total_new_bookings": "New Bookings", 
+        "total_interested": "Interested"
+    })
+    
     trend_chart = alt.Chart(daily_melted).mark_line(point=True).encode(
-        x="Date:T", y="Value:Q", color="Metric:N", tooltip=["Date", "Metric", "Value"]
-    ).properties(width="container")
+        x="Date:T",
+        y="Value:Q",
+        color=alt.Color("Metric:N", legend=alt.Legend(title="Metric")),
+        tooltip=["Date", "Metric", "Value"]
+    ).properties(
+        width="container",
+        height=300
+    )
     st.altair_chart(trend_chart, use_container_width=True)
 
 with row1_col2:
     st.subheader("Customer Sentiment")
-    negative_total = int(df_filtered["total_not_interested"].sum())
-    neutral_total = int(df_filtered["total_asked_dates"].sum())
-    positive_total = int(df_filtered["total_new_bookings"].sum() + df_filtered["total_interested"].sum())
-    sentiment_df = pd.DataFrame({"Sentiment": ["Negative", "Neutral", "Positive"], "Count": [negative_total, neutral_total, positive_total]})
-
-    sentiment_chart = alt.Chart(sentiment_df).mark_bar().encode(
-        x="Sentiment:N", y="Count:Q", color="Sentiment:N", tooltip=["Sentiment", "Count"]
-    ).properties(width="container")
+    
+    # Use the main metrics instead of platform-specific ones
+    sentiment_data = {
+        "Positive": total_new_bookings + total_interested,
+        "Neutral": total_no_reply,  # or use actual "asked dates" if available
+        "Negative": total_not_interested
+    }
+    
+    sentiment_df = pd.DataFrame({
+        "Sentiment": list(sentiment_data.keys()),
+        "Count": list(sentiment_data.values())
+    })
+    
+    # Use a pie chart instead of bar chart for sentiment
+    sentiment_chart = alt.Chart(sentiment_df).mark_arc(innerRadius=0).encode(
+        theta="Count:Q",
+        color=alt.Color("Sentiment:N", scale=alt.Scale(
+            domain=["Positive", "Neutral", "Negative"],
+            range=["green", "orange", "red"]
+        )),
+        tooltip=["Sentiment", "Count"]
+    ).properties(
+        width="container",
+        height=300
+    )
+    
     st.altair_chart(sentiment_chart, use_container_width=True)
 
 st.markdown("---")
 
 row2_col1, row2_col2 = st.columns(2)
 
-with row2_col1:
-    st.subheader("Platform Breakdown")
-    platform_cols = {"Instagram": "Instagram Answered", "WhatsApp": "WhatsApp Answered", "TikTok": "TikTok Answered", "Calls": "Total Calls Received"}
-    platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
-
-    platform_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
-    platform_chart = alt.Chart(platform_df).mark_bar().encode(
-        x="Platform:N", y="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
-    ).properties(width="container")
-    st.altair_chart(platform_chart, use_container_width=True)
+with col_left:
+    st.caption("Interactions per platform")
+    
+    # Simplified platform data
+    platform_data = {}
+    if "Instagram Answered" in df_filtered.columns:
+        platform_data["Instagram"] = df_filtered["Instagram Answered"].sum()
+    if "WhatsApp Answered" in df_filtered.columns:
+        platform_data["WhatsApp"] = df_filtered["WhatsApp Answered"].sum() 
+    if "TikTok Answered" in df_filtered.columns:
+        platform_data["TikTok"] = df_filtered["TikTok Answered"].sum()
+    if "Total Calls Received" in df_filtered.columns:
+        platform_data["Calls"] = df_filtered["Total Calls Received"].sum()
+    
+    if platform_data:
+        # Create a clean bar chart
+        platforms_df = pd.DataFrame({
+            "Platform": list(platform_data.keys()),
+            "Interactions": list(platform_data.values())
+        })
+        
+        bar_chart = alt.Chart(platforms_df).mark_bar().encode(
+            x=alt.X("Platform:N", sort="-y", title="Platform"),
+            y=alt.Y("Interactions:Q", title="Number of Interactions"),
+            color=alt.Color("Platform:N", legend=None),
+            tooltip=["Platform", "Interactions"]
+        ).properties(height=300)
+        
+        st.altair_chart(bar_chart, use_container_width=True)
+    else:
+        st.info("No platform interaction data available")
 
 with row2_col2:
     st.subheader("Platform Share")
