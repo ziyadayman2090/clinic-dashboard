@@ -393,8 +393,8 @@ st.altair_chart(pie_chart, use_container_width=True)
 
 
     # KPIs للمنصة المختارة
-k1, k2, k3 = st.columns(3)
-k4, k5, k6 = st.columns(3)
+    k1, k2, k3 = st.columns(3)
+    k4, k5, k6 = st.columns(3)
 
     k1.metric("Total interactions", total_platform_interactions)
     k2.metric("New bookings", platform_bookings)
