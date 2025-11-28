@@ -165,6 +165,49 @@ def safe_sum_per_row(df, cols):
         return 0
     return df[existing].sum(axis=1)
 
+def safe_col_sum(df, col_name):
+    return int(df[col_name].sum()) if col_name in df.columns else 0
+
+def find_platform_columns(df, platform_name):
+    """Dynamically find the correct column names for each platform"""
+    platform_lower = platform_name.lower()
+    
+    # Define possible column patterns for each metric type
+    patterns = {
+        "total": ["answered", "received", "total"],
+        "bookings": ["new bookings", "bookings"],
+        "asked_dates": ["asked about dates", "asked dates"],
+        "interested": ["interested"],
+        "not_interested": ["not interested"],
+        "no_reply": ["didn't answer", "didnt answer", "no reply", "no answer"]
+    }
+    
+    found_cols = {}
+    
+    for metric_type, pattern_list in patterns.items():
+        # Look for columns that match the platform and metric pattern
+        matching_cols = []
+        for col in df.columns:
+            col_lower = col.lower()
+            # Check if column contains platform name and one of the metric patterns
+            if (platform_lower in col_lower or 
+                (platform_lower == "calls" and "call" in col_lower)):
+                
+                for pattern in pattern_list:
+                    if pattern in col_lower:
+                        matching_cols.append(col)
+                        break
+        
+        # Use the first matching column found, or use the predefined one
+        if matching_cols:
+            found_cols[metric_type] = matching_cols[0]
+        else:
+            # Fallback to predefined column name
+            predefined_col = PLATFORM_COLS[platform_name][metric_type]
+            found_cols[metric_type] = predefined_col if predefined_col in df.columns else None
+    
+    return found_cols
+
 @st.cache_data(ttl=5)
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
@@ -470,26 +513,23 @@ PLATFORM_COLS = {
     },
 }
 
-def safe_col_sum(df, col_name):
-    return int(df[col_name].sum()) if col_name in df.columns else 0
-
 # ======================
 # 2) PLATFORMS TAB
 # ======================
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
-    # Platform selection for the breakdown
+    # Platform selection for the breakdown - using unique key
     selected_platform = st.selectbox(
         "Select Platform:",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        key="platform_breakdown"
+        key="platform_breakdown_select"
     )
 
-    # Get the column mapping for selected platform
-    platform_cols = PLATFORM_COLS[selected_platform]
+    # Dynamically find the correct column names for the selected platform
+    platform_cols = find_platform_columns(df_filtered, selected_platform)
 
-    # Calculate platform-specific metrics
+    # Calculate platform-specific metrics using dynamically found columns
     total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
     platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
     platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
@@ -626,7 +666,7 @@ with tab_time:
         "Choose platform (weekly view):",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
-        key="weekly_platform",
+        key="weekly_platform_select"
     )
 
     weekly_cols_map = PLATFORM_COLS[weekly_platform]
@@ -684,7 +724,7 @@ with tab_time:
         "Choose platform (last 7 days – daily view):",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
-        key="last7_platform",
+        key="last7_platform_select"
     )
 
     daily_cols_map = PLATFORM_COLS[daily_platform]
@@ -737,7 +777,6 @@ with tab_time:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
         else:
             st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
-        
 
 
 
