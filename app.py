@@ -262,33 +262,40 @@ with col_trend:
 
         
 
-    with col_sent:
-        st.subheader("Customer Sentiment")
+    
+with col_sent:
+    st.subheader("Customer Sentiment")
 
-        negative_total = int(df_filtered["total_not_interested"].sum())
-        neutral_total = int(df_filtered["total_asked_dates"].sum())
-        positive_total = int(
-            df_filtered["total_new_bookings"].sum()
-            + df_filtered["total_interested"].sum()
-        )
+    # Compute totals once
+    negative_total = int(df_filtered["total_not_interested"].sum())
+    neutral_total = int(df_filtered["total_asked_dates"].sum())
+    positive_total = int(
+        df_filtered["total_new_bookings"].sum()
+        + df_filtered["total_interested"].sum()
+    )
 
-        sentiment_df = pd.DataFrame(
-            {
-                "Sentiment": [
-                    "Negative (Not interested)",
-                    "Neutral (Asked about dates)",
-                    "Positive (Bookings + Interested)",
-                ],
-                "Count": [negative_total, neutral_total, positive_total],
-            })
-    sentiment_chart=
-        alt.Chart(sentiment_df).mark_bar().encode(
-            x="Sentiment:N",
-            y="Count:Q",
-            color="Sentiment:N",
-            tooltip=["Sentiment","Count"]
-                     ).properties(width="container")
-        st.altair_chart(sentiment_chart,use_container_width=True)
+    # Build DataFrame for Altair
+    sentiment_df = pd.DataFrame(
+        {
+            "Sentiment": [
+                "Negative (Not interested)",
+                "Neutral (Asked about dates)",
+                "Positive (Bookings + Interested)",
+            ],
+            "Count": [negative_total, neutral_total, positive_total],
+        }
+    )
+
+    # Altair bar chart
+    sentiment_chart = alt.Chart(sentiment_df).mark_bar().encode(
+        x="Sentiment:N",
+        y="Count:Q",
+        color="Sentiment:N",
+        tooltip=["Sentiment", "Count"]
+    ).properties(width="container")
+
+    st.altair_chart(sentiment_chart, use_container_width=True)
+
 
 # ======================
 # 2) PLATFORMS TAB
