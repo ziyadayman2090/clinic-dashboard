@@ -482,7 +482,7 @@ with tab_time:
                     st.altair_chart(chart, use_container_width=True)
                 else:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
-        else:
+        
 
 
 
