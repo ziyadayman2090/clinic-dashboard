@@ -528,9 +528,155 @@ with tab_platforms:
     st.markdown("---")
     st.subheader("Platform Distribution")
     
+    # ======================
+# تعريف خريطة المنصات (هنستخدمها في أكتر من حتة)
+# ======================
+PLATFORM_COLS = {
+    "Instagram": {
+        "total": "Instagram Answered",
+        "bookings": "New Bookings - Insta",
+        "asked_dates": "Asked About Dates - Insta",
+        "interested": "Interested - Insta",
+        "not_interested": "Not Interested - Insta",
+        "no_reply": "Didn't Answer - Insta",
+    },
+    "WhatsApp": {
+        "total": "WhatsApp Answered",
+        "bookings": "New Bookings - Whats",
+        "asked_dates": "Asked About Dates - Whats",
+        "interested": "Interested - Whats",
+        "not_interested": "Not Interested - Whats",
+        "no_reply": "Didn't Answer - Whats",
+    },
+    "TikTok": {
+        "total": "TikTok Answered",
+        "bookings": "New Bookings - TikTok",
+        "asked_dates": "Asked About Dates - TikTok",
+        "interested": "Interested - TikTok",
+        "not_interested": "Not Interested - TikTok",
+        "no_reply": "Didn't Answer - TikTok",
+    },
+    "Calls": {
+        "total": "Total Calls Received",
+        "bookings": "New Bookings - Call",
+        "asked_dates": "Asked About Dates - Call",
+        "interested": "Interested - Call",
+        "not_interested": "Not Interested - Call",
+        "no_reply": "Didn't Answer - Call",
+    },
+}
+
+def safe_col_sum(df, col_name):
+    """Safely sum a column if it exists, return 0 if not"""
+    if col_name and col_name in df.columns:
+        return int(df[col_name].sum())
+    return 0
+
+def find_platform_columns(df, platform_name):
+    """Dynamically find the correct column names for each platform"""
+    platform_lower = platform_name.lower()
+    
+    # Define possible column patterns for each metric type
+    patterns = {
+        "total": ["answered", "received", "total"],
+        "bookings": ["new bookings", "bookings"],
+        "asked_dates": ["asked about dates", "asked dates"],
+        "interested": ["interested"],
+        "not_interested": ["not interested"],
+        "no_reply": ["didn't answer", "didnt answer", "no reply", "no answer"]
+    }
+    
+    found_cols = {}
+    
+    for metric_type, pattern_list in patterns.items():
+        # Look for columns that match the platform and metric pattern
+        matching_cols = []
+        for col in df.columns:
+            col_lower = col.lower()
+            # Check if column contains platform name and one of the metric patterns
+            if (platform_lower in col_lower or 
+                (platform_lower == "calls" and "call" in col_lower)):
+                
+                for pattern in pattern_list:
+                    if pattern in col_lower:
+                        matching_cols.append(col)
+                        break
+        
+        # Use the first matching column found, or use the predefined one
+        if matching_cols:
+            found_cols[metric_type] = matching_cols[0]
+        else:
+            # Fallback to predefined column name
+            predefined_col = PLATFORM_COLS[platform_name][metric_type]
+            found_cols[metric_type] = predefined_col if predefined_col in df.columns else None
+    
+    return found_cols
+
+# ======================
+# 2) PLATFORMS TAB
+# ======================
+with tab_platforms:
+    st.subheader("Platform Breakdown (per platform)")
+
+    # Platform selection for the breakdown
+    selected_platform = st.selectbox(
+        "Select Platform:",
+        ["Instagram", "WhatsApp", "TikTok", "Calls"],
+        key="platform_breakdown"
+    )
+
+    # Dynamically find the correct column names for the selected platform
+    platform_cols = find_platform_columns(df_filtered, selected_platform)
+
+    # Calculate platform-specific metrics using dynamically found columns
+    total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
+    platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
+    platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
+    platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
+    platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
+    platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
+
+    # Platform metrics with gradient cards
+    st.subheader(f"📊 {selected_platform} Performance")
+    
+    platform_metrics = [
+        {"title": "TOTAL INTERACTIONS", "value": total_platform_interactions, "gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"},
+        {"title": "NEW BOOKINGS", "value": platform_bookings, "gradient": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"},
+        {"title": "ASKED ABOUT DATES", "value": platform_asked_dates, "gradient": "linear-gradient(135deg, #fc466b 0%, #3f5efb 100%)"},
+        {"title": "INTERESTED", "value": platform_interested, "gradient": "linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%)"},
+        {"title": "NOT INTERESTED", "value": platform_not_interested, "gradient": "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"},
+        {"title": "DIDN'T ANSWER", "value": platform_no_reply, "gradient": "linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)"}
+    ]
+    
+    # Create two rows of platform metrics
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+    
+    all_cols = row1 + row2
+    
+    for i, (col, metric) in enumerate(zip(all_cols, platform_metrics)):
+        with col:
+            st.markdown(f"""
+            <div class="gradient-card" style="background: {metric['gradient']};">
+                <div class="gradient-title">{metric['title']}</div>
+                <div class="gradient-value">{metric['value']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Show which columns are being used for debugging (optional)
+    with st.expander("🔍 Columns being used for calculation"):
+        st.write(f"Platform: {selected_platform}")
+        for metric_type, col_name in platform_cols.items():
+            value = safe_col_sum(df_filtered, col_name) if col_name else 0
+            st.write(f"{metric_type}: {col_name} = {value}")
+
+    # Platform pie chart
+    st.markdown("---")
+    st.subheader("Platform Distribution")
+    
     platform_cols_simple = {
         "Instagram": "Instagram Answered",
-        "WhatsApp": "WhatsApp Answered",
+        "WhatsApp": "WhatsApp Answered", 
         "TikTok": "TikTok Answered",
         "Calls": "Total Calls Received"
     }
@@ -548,7 +694,7 @@ with tab_platforms:
         {
             "Metric": [
                 "Total",
-                "New bookings",
+                "New bookings", 
                 "Asked dates",
                 "Interested",
                 "Not interested",
