@@ -165,6 +165,21 @@ def safe_sum_per_row(df, cols):
         return 0
     return df[existing].sum(axis=1)
 
+# Debug function to check column names
+def debug_columns(df):
+    st.write("### 🔍 Debug - Available Columns:")
+    all_cols = list(df.columns)
+    st.write(f"Total columns: {len(all_cols)}")
+    
+    # Check for variations of "Didn't Answer"
+    didnt_answer_variations = [col for col in all_cols if "didn" in col.lower() or "answer" in col.lower()]
+    st.write("Columns related to 'Didn't Answer':", didnt_answer_variations)
+    
+    # Check for other important columns
+    important_cols = ["total_interactions", "total_new_bookings", "total_interested", "total_not_interested", "total_no_reply"]
+    st.write("Calculated columns:", [col for col in important_cols if col in df.columns])
+    
+    return didnt_answer_variations
 
 @st.cache_data(ttl=5)
 def load_data():
@@ -177,6 +192,42 @@ def load_data():
     # نحول التاريخ
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date")
+
+    # Debug: Find the correct "Didn't Answer" column names
+    didnt_answer_cols = [col for col in df.columns if "didn" in col.lower() or "answer" in col.lower()]
+    
+    # Try different variations of "Didn't Answer" column names
+    possible_didnt_answer_columns = [
+        # Try the exact names first
+        ["Didn't Answer - Insta", "Didn't Answer - Whats", "Didn't Answer - TikTok"],
+        # Try with different apostrophe
+        ["Didn’t Answer - Insta", "Didn’t Answer - Whats", "Didn’t Answer - TikTok"],
+        # Try without apostrophe
+        ["Didnt Answer - Insta", "Didnt Answer - Whats", "Didnt Answer - TikTok"],
+        # Try with different spacing
+        ["Didn't Answer- Insta", "Didn't Answer- Whats", "Didn't Answer- TikTok"],
+    ]
+    
+    # Find which set of columns actually exists
+    selected_columns = None
+    for column_set in possible_didnt_answer_columns:
+        if all(col in df.columns for col in column_set):
+            selected_columns = column_set
+            break
+    
+    # If no exact match found, use whatever columns we can find
+    if selected_columns is None and didnt_answer_cols:
+        selected_columns = []
+        for platform in ["Insta", "Whats", "TikTok"]:
+            platform_cols = [col for col in didnt_answer_cols if platform.lower() in col.lower()]
+            if platform_cols:
+                selected_columns.append(platform_cols[0])
+            else:
+                selected_columns.append(None)
+    
+    # If still no columns found, use empty list
+    if selected_columns is None:
+        selected_columns = [None, None, None]
 
     # نعمل أعمدة إجمالية
     df["total_interactions"] = safe_sum_per_row(
@@ -226,15 +277,9 @@ def load_data():
         ],
     )
 
-    # خدو بالك: هنا بنستخدم الـ apostrophe اللي في الشيت "Didn't"
-    df["total_no_reply"] = safe_sum_per_row(
-        df,
-        [
-            "Didn't Answer - Insta",
-            "Didn't Answer - Whats",
-            "Didn't Answer - TikTok",
-        ],
-    )
+    # استخدام الأسماء الصحيحة لأعمدة "Didn't Answer"
+    valid_didnt_answer_cols = [col for col in selected_columns if col is not None and col in df.columns]
+    df["total_no_reply"] = safe_sum_per_row(df, valid_didnt_answer_cols)
 
     return df
 
@@ -305,16 +350,35 @@ if df_filtered.empty:
 st.title("📊 AL-Basma Clinic Leads Dashboard")
 
 # ======================
+# Debug: Check column names
+# ======================
+with st.expander("🔍 Debug Column Names"):
+    debug_columns(df_filtered)
+
+# ======================
 # Modern KPI Cards
 # ======================
 st.subheader("📊 Overview Metrics")
 
-# Calculate your metrics
+# Calculate your metrics with safe checks
 total_interactions = int(df_filtered["total_interactions"].sum()) if "total_interactions" in df_filtered.columns else 0
 total_new_bookings = int(df_filtered["total_new_bookings"].sum()) if "total_new_bookings" in df_filtered.columns else 0
 total_interested = int(df_filtered["total_interested"].sum()) if "total_interested" in df_filtered.columns else 0
 total_not_interested = int(df_filtered["total_not_interested"].sum()) if "total_not_interested" in df_filtered.columns else 0
 total_no_reply = int(df_filtered["total_no_reply"].sum()) if "total_no_reply" in df_filtered.columns else 0
+
+# Debug the "Didn't Answer" calculation
+with st.expander("🔍 Debug Didn't Answer Calculation"):
+    st.write("total_no_reply value:", total_no_reply)
+    if "total_no_reply" in df_filtered.columns:
+        st.write("total_no_reply column sample:", df_filtered["total_no_reply"].head())
+        st.write("total_no_reply sum:", df_filtered["total_no_reply"].sum())
+    
+    # Check individual "Didn't Answer" columns
+    didnt_answer_cols = [col for col in df_filtered.columns if "didn" in col.lower() or "answer" in col.lower()]
+    for col in didnt_answer_cols:
+        if col in df_filtered.columns:
+            st.write(f"{col} sum: {df_filtered[col].sum()}")
 
 # Modern cards with icons
 metrics_data = [
@@ -712,7 +776,6 @@ with tab_time:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
         else:
             st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
-#Working CSS
         
 
 
