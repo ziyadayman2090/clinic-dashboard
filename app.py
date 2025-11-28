@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 from datetime import datetime, timedelta, date
-
 # ======================
 # إعدادات الصفحة
 # ======================
 st.set_page_config(
-    page_title="AL-basma Clinic Leads Dashboard",
+    page_title="AL-Basma Clinic Leads Dashboard",
     page_icon="📊",
     layout="wide",
 )
@@ -116,7 +116,7 @@ max_date = df["Date"].max().date()
 with st.sidebar:
     st.header("Filters")
 
-    quick_range = st.selectbox(
+    quick_range = st.Radio(
         "Quick Range",
         ["Today", "Last 7 days", "This month", "All time"],
         index=2,
@@ -166,7 +166,7 @@ if df_filtered.empty:
 # ======================
 # العنوان
 # ======================
-st.title("📊 AL-basma Clinic Leads Dashboard")
+st.title("📊 AL-Basma Clinic Leads Dashboard")
 
 # ======================
 # KPIs فوق
@@ -248,7 +248,9 @@ with tab_overview:
             ]
             .sum()
             .reset_index()
-            .set_index("Date")
+            Trend_chart=
+                       alt.chart(daily).mark_line(point=True).encode(x="Date:T",
+                        
         )
         st.line_chart(daily)
 
