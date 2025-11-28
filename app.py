@@ -116,7 +116,7 @@ max_date = df["Date"].max().date()
 with st.sidebar:
     st.header("Filters")
 
-    quick_range = st.Radio(
+    quick_range = st.radio(
         "Quick Range",
         ["Today", "Last 7 days", "This month", "All time"],
         index=2,
