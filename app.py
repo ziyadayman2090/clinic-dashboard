@@ -314,8 +314,8 @@ platform_cols = {
 
    
 platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
-    pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
-    pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
+pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
+pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
         theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
 )
     st.altair_chart(pie_chart, use_container_width=True)
