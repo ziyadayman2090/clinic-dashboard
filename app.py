@@ -252,6 +252,9 @@ st.markdown("---")
 
 row2_col1, row2_col2 = st.columns(2)
 
+# First, define your columns before using them
+col_left, col_right = st.columns(2)
+
 with col_left:
     st.caption("Interactions per platform")
     
@@ -284,14 +287,23 @@ with col_left:
     else:
         st.info("No platform interaction data available")
 
-with row2_col2:
+with col_right:
     st.subheader("Platform Share")
+    # Make sure platform_df is defined - using the same platform_data from above
+    platform_df = pd.DataFrame({
+        "Platform": list(platform_data.keys()),
+        "Count": list(platform_data.values())
+    })
     pie_chart = alt.Chart(platform_df).mark_arc(innerRadius=50).encode(
-        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
-    ).properties(width="container")
+        theta="Count:Q", 
+        color="Platform:N", 
+        tooltip=["Platform", "Count"]
+    ).properties(height=300)
     st.altair_chart(pie_chart, use_container_width=True)
+
 st.markdown("---")
 
+# Create the next row of columns
 row3_col1, row3_col2 = st.columns(2)
 
 with row3_col1:
@@ -299,17 +311,47 @@ with row3_col1:
     df_filtered["week_start"] = df_filtered["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
     weekly = df_filtered.groupby("week_start")[["total_interactions", "total_new_bookings"]].sum().reset_index()
 
-    weekly_chart = alt.Chart(weekly.melt(id_vars=["week_start"], var_name="Metric", value_name="Value")).mark_bar().encode(
-        x="week_start:T", y="Value:Q", color="Metric:N", tooltip=["week_start", "Metric", "Value"]
-    ).properties(width="container")
+    # Simplify the chart - only show 2 main metrics
+    weekly_melted = weekly.melt(id_vars=["week_start"], var_name="Metric", value_name="Value")
+    weekly_melted["Metric"] = weekly_melted["Metric"].replace({
+        "total_interactions": "Total Interactions",
+        "total_new_bookings": "New Bookings"
+    })
+    
+    weekly_chart = alt.Chart(weekly_melted).mark_bar().encode(
+        x="week_start:T", 
+        y="Value:Q", 
+        color="Metric:N", 
+        tooltip=["week_start", "Metric", "Value"]
+    ).properties(height=300)
     st.altair_chart(weekly_chart, use_container_width=True)
 
 with row3_col2:
     st.subheader("Last 7 Days")
     last7 = df_filtered.sort_values("Date").tail(7)
-    daily_chart = alt.Chart(last7.melt(id_vars=["Date"], var_name="Metric", value_name="Value")).mark_line(point=True).encode(
-        x="Date:T", y="Value:Q", color="Metric:N", tooltip=["Date", "Metric", "Value"]
-    ).properties(width="container")
+    
+    # Simplify - only show key metrics to avoid clutter
+    metrics_to_show = ["total_interactions", "total_new_bookings", "total_interested"]
+    last7_melted = last7.melt(
+        id_vars=["Date"], 
+        value_vars=[col for col in metrics_to_show if col in last7.columns],
+        var_name="Metric", 
+        value_name="Value"
+    )
+    
+    # Clean up metric names
+    last7_melted["Metric"] = last7_melted["Metric"].replace({
+        "total_interactions": "Total Interactions",
+        "total_new_bookings": "New Bookings",
+        "total_interested": "Interested"
+    })
+    
+    daily_chart = alt.Chart(last7_melted).mark_line(point=True).encode(
+        x="Date:T", 
+        y="Value:Q", 
+        color="Metric:N", 
+        tooltip=["Date", "Metric", "Value"]
+    ).properties(height=300)
     st.altair_chart(daily_chart, use_container_width=True)
 
 
