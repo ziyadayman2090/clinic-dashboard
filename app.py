@@ -281,7 +281,7 @@ with col_trend:
                 ],
                 "Count": [negative_total, neutral_total, positive_total],
             })
-        sentiment_chart=
+    sentiment_chart=
         alt.Chart(sentiment_df).mark_bar().encode(
             x="Sentiment:N",
             y="Count:Q",
