@@ -252,9 +252,6 @@ st.markdown("---")
 
 row2_col1, row2_col2 = st.columns(2)
 
-# First, define your columns before using them
-col_left, col_right = st.columns(2)
-
 with col_left:
     st.caption("Interactions per platform")
     
@@ -287,23 +284,14 @@ with col_left:
     else:
         st.info("No platform interaction data available")
 
-with col_right:
+with row2_col2:
     st.subheader("Platform Share")
-    # Make sure platform_df is defined - using the same platform_data from above
-    platform_df = pd.DataFrame({
-        "Platform": list(platform_data.keys()),
-        "Count": list(platform_data.values())
-    })
     pie_chart = alt.Chart(platform_df).mark_arc(innerRadius=50).encode(
-        theta="Count:Q", 
-        color="Platform:N", 
-        tooltip=["Platform", "Count"]
-    ).properties(height=300)
+        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
+    ).properties(width="container")
     st.altair_chart(pie_chart, use_container_width=True)
-
 st.markdown("---")
 
-# Create the next row of columns
 row3_col1, row3_col2 = st.columns(2)
 
 with row3_col1:
@@ -311,47 +299,17 @@ with row3_col1:
     df_filtered["week_start"] = df_filtered["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
     weekly = df_filtered.groupby("week_start")[["total_interactions", "total_new_bookings"]].sum().reset_index()
 
-    # Simplify the chart - only show 2 main metrics
-    weekly_melted = weekly.melt(id_vars=["week_start"], var_name="Metric", value_name="Value")
-    weekly_melted["Metric"] = weekly_melted["Metric"].replace({
-        "total_interactions": "Total Interactions",
-        "total_new_bookings": "New Bookings"
-    })
-    
-    weekly_chart = alt.Chart(weekly_melted).mark_bar().encode(
-        x="week_start:T", 
-        y="Value:Q", 
-        color="Metric:N", 
-        tooltip=["week_start", "Metric", "Value"]
-    ).properties(height=300)
+    weekly_chart = alt.Chart(weekly.melt(id_vars=["week_start"], var_name="Metric", value_name="Value")).mark_bar().encode(
+        x="week_start:T", y="Value:Q", color="Metric:N", tooltip=["week_start", "Metric", "Value"]
+    ).properties(width="container")
     st.altair_chart(weekly_chart, use_container_width=True)
 
 with row3_col2:
     st.subheader("Last 7 Days")
     last7 = df_filtered.sort_values("Date").tail(7)
-    
-    # Simplify - only show key metrics to avoid clutter
-    metrics_to_show = ["total_interactions", "total_new_bookings", "total_interested"]
-    last7_melted = last7.melt(
-        id_vars=["Date"], 
-        value_vars=[col for col in metrics_to_show if col in last7.columns],
-        var_name="Metric", 
-        value_name="Value"
-    )
-    
-    # Clean up metric names
-    last7_melted["Metric"] = last7_melted["Metric"].replace({
-        "total_interactions": "Total Interactions",
-        "total_new_bookings": "New Bookings",
-        "total_interested": "Interested"
-    })
-    
-    daily_chart = alt.Chart(last7_melted).mark_line(point=True).encode(
-        x="Date:T", 
-        y="Value:Q", 
-        color="Metric:N", 
-        tooltip=["Date", "Metric", "Value"]
-    ).properties(height=300)
+    daily_chart = alt.Chart(last7.melt(id_vars=["Date"], var_name="Metric", value_name="Value")).mark_line(point=True).encode(
+        x="Date:T", y="Value:Q", color="Metric:N", tooltip=["Date", "Metric", "Value"]
+    ).properties(width="container")
     st.altair_chart(daily_chart, use_container_width=True)
 
 
@@ -601,43 +559,12 @@ with tab_platforms:
 # 3) TIME ANALYSIS TAB
 # ======================
 with tab_time:
-    # Define platform columns with safety checks
-    PLATFORM_COLS = {
-        "Instagram": {
-            "total": "Instagram Answered",
-            "bookings": "New Bookings - Insta"
-        },
-        "WhatsApp": {
-            "total": "WhatsApp Answered", 
-            "bookings": "New Bookings - Whats"
-        },
-        "TikTok": {
-            "total": "TikTok Answered",
-            "bookings": "New Bookings - TikTok"
-        },
-        "Calls": {
-            "total": "Total Calls Received",
-            "bookings": "New Bookings - Call"
-        }
-    }
-    
-    # Filter out platforms that don't exist in the dataset
-    available_platforms = []
-    for platform, cols in PLATFORM_COLS.items():
-        # Check if at least one of the columns exists
-        if any(col in df_filtered.columns for col in cols.values()):
-            available_platforms.append(platform)
-    
-    if not available_platforms:
-        st.warning("No platform data available in the dataset.")
-        st.stop()
-    
     # ---------- Last 4 weeks per platform ----------
     st.subheader("Last 4 weeks (weekly view)")
 
     weekly_platform = st.selectbox(
         "Choose platform (weekly view):",
-        available_platforms,  # Only show available platforms
+        ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
         key="weekly_platform",
     )
@@ -649,12 +576,11 @@ with tab_time:
         lambda r: r.start_time.date()
     )
 
-    # Safely get aggregation columns
     agg_cols = []
-    for col_key in ["total", "bookings"]:
-        col_name = weekly_cols_map.get(col_key)
-        if col_name and col_name in df_weeks.columns:
-            agg_cols.append(col_name)
+    if weekly_cols_map["total"] in df_weeks.columns:
+        agg_cols.append(weekly_cols_map["total"])
+    if weekly_cols_map["bookings"] in df_weeks.columns:
+        agg_cols.append(weekly_cols_map["bookings"])
 
     if agg_cols:
         week_agg = (
@@ -671,23 +597,23 @@ with tab_time:
 
         with col_w1:
             st.caption("Interactions per week")
-            total_col = weekly_cols_map.get("total")
-            if total_col and total_col in last_4.columns:
+            total_col = weekly_cols_map["total"]
+            if total_col in last_4.columns:
                 chart_df = last_4[["Week", total_col]].set_index("Week")
                 st.bar_chart(chart_df)
             else:
-                st.info(f"No interaction data available for {weekly_platform}.")
+                st.info("لا توجد بيانات للتفاعل الأسبوعي لهذا البلاتفورم.")
 
         with col_w2:
             st.caption("New bookings per week")
-            book_col = weekly_cols_map.get("bookings")
-            if book_col and book_col in last_4.columns:
+            book_col = weekly_cols_map["bookings"]
+            if book_col in last_4.columns:
                 chart_df = last_4[["Week", book_col]].set_index("Week")
                 st.bar_chart(chart_df)
             else:
-                st.info(f"No booking data available for {weekly_platform}.")
+                st.info("لا توجد بيانات للحجوزات الأسبوعية لهذا البلاتفورم.")
     else:
-        st.info(f"No data columns available for {weekly_platform}.")
+        st.info("لا توجد أعمدة كافية لحساب بيانات الأسابيع لهذا البلاتفورم.")
 
     st.markdown("---")
 
@@ -696,7 +622,7 @@ with tab_time:
 
     daily_platform = st.selectbox(
         "Choose platform (last 7 days – daily view):",
-        available_platforms,  # Only show available platforms
+        ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
         key="last7_platform",
     )
@@ -705,60 +631,52 @@ with tab_time:
 
     df_days = df_filtered.copy().sort_values("Date")
 
-    # Safely get last 7 days
-    if df_days.empty:
-        st.info("No data available for date filtering.")
+    unique_days = df_days["Date"].dt.date.unique()
+    last_7_days = list(unique_days[-7:])
+
+    df_last7 = df_days[df_days["Date"].dt.date.isin(last_7_days)].copy()
+
+    if df_last7.empty:
+        st.info("لا توجد بيانات لآخر ٧ أيام لهذا البلاتفورم.")
     else:
-        unique_days = df_days["Date"].dt.date.unique()
-        last_7_days = list(unique_days[-7:]) if len(unique_days) > 0 else []
+        agg_cols = []
+        if daily_cols_map["total"] in df_last7.columns:
+            agg_cols.append(daily_cols_map["total"])
+        if daily_cols_map["bookings"] in df_last7.columns:
+            agg_cols.append(daily_cols_map["bookings"])
 
-        if not last_7_days:
-            st.info("No data available for the last 7 days.")
-        else:
-            df_last7 = df_days[df_days["Date"].dt.date.isin(last_7_days)].copy()
+        if agg_cols:
+            day_agg = (
+                df_last7.groupby(df_last7["Date"].dt.date)[agg_cols]
+                .sum()
+                .reset_index()
+                .rename(columns={"Date": "day"})
+                .sort_values("day")
+            )
 
-            if df_last7.empty:
-                st.info(f"No data for last 7 days for {daily_platform}.")
-            else:
-                # Safely get aggregation columns
-                agg_cols = []
-                for col_key in ["total", "bookings"]:
-                    col_name = daily_cols_map.get(col_key)
-                    if col_name and col_name in df_last7.columns:
-                        agg_cols.append(col_name)
+            day_agg["Day"] = day_agg["day"].astype(str)
 
-                if agg_cols:
-                    day_agg = (
-                        df_last7.groupby(df_last7["Date"].dt.date)[agg_cols]
-                        .sum()
-                        .reset_index()
-                        .rename(columns={"Date": "day"})
-                        .sort_values("day")
-                    )
+            col_d1, col_d2 = st.columns(2)
 
-                    day_agg["Day"] = day_agg["day"].astype(str)
-
-                    col_d1, col_d2 = st.columns(2)
-
-                    with col_d1:
-                        st.caption("Interactions per day (last 7 days)")
-                        total_col = daily_cols_map.get("total")
-                        if total_col and total_col in day_agg.columns:
-                            chart_df = day_agg[["Day", total_col]].set_index("Day")
-                            st.bar_chart(chart_df)
-                        else:
-                            st.info(f"No interaction data available for {daily_platform}.")
-
-                    with col_d2:
-                        st.caption("New bookings per day (last 7 days)")
-                        book_col = daily_cols_map.get("bookings")
-                        if book_col and book_col in day_agg.columns:
-                            chart_df = day_agg[["Day", book_col]].set_index("Day")
-                            st.bar_chart(chart_df)
-                        else:
-                            st.info(f"No booking data available for {daily_platform}.")
+            with col_d1:
+                st.caption("Interactions per day (last 7 days)")
+                total_col = daily_cols_map["total"]
+                if total_col in day_agg.columns:
+                    chart_df = day_agg[["Day", total_col]].set_index("Day")
+                    st.bar_chart(chart_df)
                 else:
-                    st.info(f"No data columns available for {daily_platform}.")
+                    st.info("لا توجد بيانات للتفاعل اليومي لهذا البلاتفورم.")
+
+            with col_d2:
+                st.caption("New bookings per day (last 7 days)")
+                book_col = daily_cols_map["bookings"]
+                if book_col in day_agg.columns:
+                    chart_df = day_agg[["Day", book_col]].set_index("Day")
+                    st.bar_chart(chart_df)
+                else:
+                    st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
+        else:
+            st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
 
 
         
