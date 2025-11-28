@@ -777,6 +777,7 @@ with tab_time:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
         else:
             st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
+#CSS IS WORKING AND CALLS HAVE BEEN CALCULATED
 
 
 
