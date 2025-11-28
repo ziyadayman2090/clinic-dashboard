@@ -370,39 +370,35 @@ with col_sent:
 # ======================
 # 2) PLATFORMS TAB
 # ======================
+
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
-    
-platform_cols = {
+    platform_cols = {
         "Instagram": "Instagram Answered",
         "WhatsApp": "WhatsApp Answered",
         "TikTok": "TikTok Answered",
         "Calls": "Total Calls Received"
     }
 
-
-   
-platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
-pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
-pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
+    platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
+    pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
+    pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
         theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
-)
-st.altair_chart(pie_chart, use_container_width=True)
-
-
+    )
+    st.altair_chart(pie_chart, use_container_width=True)
 
     # KPIs للمنصة المختارة
     k1, k2, k3 = st.columns(3)
     k4, k5, k6 = st.columns(3)
 
-      k1.metric("Total interactions", total_platform_interactions)
-      k2.metric("New bookings", platform_bookings)
-      k3.metric("Asked about dates", platform_asked_dates)
+    k1.metric("Total interactions", total_platform_interactions)
+    k2.metric("New bookings", platform_bookings)
+    k3.metric("Asked about dates", platform_asked_dates)
 
-      k4.metric("Interested", platform_interested)
-      k5.metric("Not interested", platform_not_interested)
-      k6.metric("Didn't answer", platform_no_reply)
+    k4.metric("Interested", platform_interested)
+    k5.metric("Not interested", platform_not_interested)
+    k6.metric("Didn't answer", platform_no_reply)
 
     platform_summary = pd.DataFrame(
         {
@@ -431,6 +427,7 @@ st.altair_chart(pie_chart, use_container_width=True)
     st.subheader("Platforms overview")
 
     col_left, col_right = st.columns(2)
+
 
     # ------ Interactions per platform ------
     with col_left:
