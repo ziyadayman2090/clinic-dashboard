@@ -202,7 +202,11 @@ with tab_platforms:
 
     with col_left:
         st.caption("Interactions per platform")
-        interactions_cols = {p: df_filtered[c].sum() for p, c in PLATFORM_COLS.items() if c["total"] in df_filtered.columns}
+        interactions_cols = {
+            p: df_filtered[c["total"]].sum()
+            for p, c in PLATFORM_COLS.items()
+            if c["total"] in df_filtered.columns
+        }
         if interactions_cols:
             interactions_df = pd.DataFrame(list(interactions_cols.items()), columns=["Platform", "Count"]).set_index("Platform")
             st.bar_chart(interactions_df)
@@ -211,7 +215,11 @@ with tab_platforms:
 
     with col_right:
         st.caption("New bookings per platform")
-        bookings_cols = {p: df_filtered[c["bookings"]].sum() for p, c in PLATFORM_COLS.items() if c["bookings"] in df_filtered.columns}
+        bookings_cols = {
+            p: df_filtered[c["bookings"]].sum()
+            for p, c in PLATFORM_COLS.items()
+            if c["bookings"] in df_filtered.columns
+        }
         if bookings_cols:
             bookings_df = pd.DataFrame(list(bookings_cols.items()), columns=["Platform", "Count"]).set_index("Platform")
             st.bar_chart(bookings_df)
@@ -301,4 +309,5 @@ with tab_time:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
         else:
             st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
+
 
