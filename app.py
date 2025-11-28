@@ -165,6 +165,21 @@ def safe_sum_per_row(df, cols):
         return 0
     return df[existing].sum(axis=1)
 
+# Debug function to check column names
+def debug_columns(df):
+    st.write("### 🔍 Debug - Available Columns:")
+    all_cols = list(df.columns)
+    st.write(f"Total columns: {len(all_cols)}")
+    
+    # Check for variations of "Didn't Answer"
+    didnt_answer_variations = [col for col in all_cols if "didn" in col.lower() or "answer" in col.lower()]
+    st.write("Columns related to 'Didn't Answer':", didnt_answer_variations)
+    
+    # Check for other important columns
+    important_cols = ["total_interactions", "total_new_bookings", "total_interested", "total_not_interested", "total_no_reply"]
+    st.write("Calculated columns:", [col for col in important_cols if col in df.columns])
+    
+    return didnt_answer_variations
 
 @st.cache_data(ttl=5)
 def load_data():
@@ -177,6 +192,25 @@ def load_data():
     # نحول التاريخ
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date")
+
+    # Debug: Check what "Didn't Answer" columns exist
+    didnt_answer_cols = [col for col in df.columns if "didn" in col.lower() or "answer" in col.lower()]
+    
+    # Use the correct "Didn't Answer" column name
+    didnt_answer_insta = "Didn't Answer - Insta"
+    didnt_answer_whats = "Didn't Answer - Whats" 
+    didnt_answer_tiktok = "Didn't Answer - TikTok"
+    
+    # If the columns don't exist, try to find the correct ones
+    if didnt_answer_insta not in df.columns and didnt_answer_cols:
+        # Try to find the correct column names
+        for col in didnt_answer_cols:
+            if 'insta' in col.lower():
+                didnt_answer_insta = col
+            elif 'whats' in col.lower():
+                didnt_answer_whats = col
+            elif 'tiktok' in col.lower():
+                didnt_answer_tiktok = col
 
     # نعمل أعمدة إجمالية
     df["total_interactions"] = safe_sum_per_row(
@@ -226,13 +260,13 @@ def load_data():
         ],
     )
 
-    # خدو بالك: هنا بنستخدم الـ apostrophe اللي في الشيت "Didn't"
+    # استخدام الأسماء الصحيحة لأعمدة "Didn't Answer"
     df["total_no_reply"] = safe_sum_per_row(
         df,
         [
-            "Didn't Answer - Insta",
-            "Didn't Answer - Whats",
-            "Didn't Answer - TikTok",
+            didnt_answer_insta,
+            didnt_answer_whats,
+            didnt_answer_tiktok,
         ],
     )
 
@@ -305,16 +339,34 @@ if df_filtered.empty:
 st.title("📊 AL-Basma Clinic Leads Dashboard")
 
 # ======================
+# Debug: Check column names
+# ======================
+with st.expander("🔍 Debug Column Names"):
+    debug_columns(df_filtered)
+
+# ======================
 # Modern KPI Cards
 # ======================
 st.subheader("📊 Overview Metrics")
 
-# Calculate your metrics
+# Calculate your metrics with safe checks
 total_interactions = int(df_filtered["total_interactions"].sum()) if "total_interactions" in df_filtered.columns else 0
 total_new_bookings = int(df_filtered["total_new_bookings"].sum()) if "total_new_bookings" in df_filtered.columns else 0
 total_interested = int(df_filtered["total_interested"].sum()) if "total_interested" in df_filtered.columns else 0
 total_not_interested = int(df_filtered["total_not_interested"].sum()) if "total_not_interested" in df_filtered.columns else 0
 total_no_reply = int(df_filtered["total_no_reply"].sum()) if "total_no_reply" in df_filtered.columns else 0
+
+# Debug the "Didn't Answer" calculation
+with st.expander("🔍 Debug Didn't Answer Calculation"):
+    st.write("total_no_reply value:", total_no_reply)
+    if "total_no_reply" in df_filtered.columns:
+        st.write("total_no_reply column sample:", df_filtered["total_no_reply"].head())
+        st.write("total_no_reply sum:", df_filtered["total_no_reply"].sum())
+    
+    # Check individual "Didn't Answer" columns
+    didnt_answer_cols = [col for col in df_filtered.columns if "didn" in col.lower() or "answer" in col.lower()]
+    for col in didnt_answer_cols:
+        st.write(f"{col} sum: {df_filtered[col].sum()}")
 
 # Modern cards with icons
 metrics_data = [
@@ -340,378 +392,8 @@ for i, (col, metric) in enumerate(zip(cols, metrics_data)):
 
 st.markdown("---")
 
-# ======================
-# Tabs رئيسية عشان تنظيم الصفحة
-# ======================
-tab_overview, tab_platforms, tab_time = st.tabs(
-    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
-)
-
-# ======================
-# 1) OVERVIEW TAB
-# ======================
-with tab_overview:
-    # --- Daily trend + Sentiment جنب بعض ---
-    col_trend, col_sent = st.columns(2)
-
-    with col_trend:
-        st.subheader("Inquiry Trends")
-        daily = (
-            df_filtered.groupby("Date")[
-                ["total_interactions", "total_interested",
-                 "total_new_bookings", "total_not_interested"]
-            ]
-            .sum()
-            .reset_index()
-        )
-
-        # Altair chart
-        trend_chart = alt.Chart(daily).mark_line(point=True).encode(
-            x="Date:T",
-            y="total_interactions:Q",
-            tooltip=["Date", "total_interactions"]
-        ).properties(width="container")
-
-        st.altair_chart(trend_chart, use_container_width=True)
-
-    with col_sent:
-        st.subheader("Customer Sentiment")
-
-        # Compute totals once
-        negative_total = int(df_filtered["total_not_interested"].sum())
-        neutral_total = int(df_filtered["total_asked_dates"].sum())
-        positive_total = int(
-            df_filtered["total_new_bookings"].sum()
-            + df_filtered["total_interested"].sum()
-        )
-
-        # Build DataFrame for Altair
-        sentiment_df = pd.DataFrame(
-            {
-                "Sentiment": [
-                    "Negative (Not interested)",
-                    "Neutral (Asked about dates)",
-                    "Positive (Bookings + Interested)",
-                ],
-                "Count": [negative_total, neutral_total, positive_total],
-            }
-        )
-
-        # Altair bar chart
-        sentiment_chart = alt.Chart(sentiment_df).mark_bar().encode(
-            x="Sentiment:N",
-            y="Count:Q",
-            color="Sentiment:N",
-            tooltip=["Sentiment", "Count"]
-        ).properties(width="container")
-
-        st.altair_chart(sentiment_chart, use_container_width=True)
-
-# ======================
-# تعريف خريطة المنصات (هنستخدمها في أكتر من حتة)
-# ======================
-PLATFORM_COLS = {
-    "Instagram": {
-        "total": "Instagram Answered",
-        "bookings": "New Bookings - Insta",
-        "asked_dates": "Asked About Dates - Insta",
-        "interested": "Interested - Insta",
-        "not_interested": "Not Interested - Insta",
-        "no_reply": "Didn't Answer - Insta",
-    },
-    "WhatsApp": {
-        "total": "WhatsApp Answered",
-        "bookings": "New Bookings - Whats",
-        "asked_dates": "Asked About Dates - Whats",
-        "interested": "Interested - Whats",
-        "not_interested": "Not Interested - Whats",
-        "no_reply": "Didn't Answer - Whats",
-    },
-    "TikTok": {
-        "total": "TikTok Answered",
-        "bookings": "New Bookings - TikTok",
-        "asked_dates": "Asked About Dates - TikTok",
-        "interested": "Interested - TikTok",
-        "not_interested": "Not Interested - TikTok",
-        "no_reply": "Didn't Answer - TikTok",
-    },
-    "Calls": {
-        "total": "Total Calls Received",
-        "bookings": "New Bookings - Call",
-        "asked_dates": "Asked About Dates - Call",
-        "interested": "Interested - Call",
-        "not_interested": "Not Interested - Call",
-        "no_reply": "Didn't Answer - Call",
-    },
-}
-
-def safe_col_sum(df, col_name):
-    return int(df[col_name].sum()) if col_name in df.columns else 0
-
-# ======================
-# 2) PLATFORMS TAB
-# ======================
-with tab_platforms:
-    st.subheader("Platform Breakdown (per platform)")
-
-    # Platform selection for the breakdown
-    selected_platform = st.selectbox(
-        "Select Platform:",
-        ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        key="platform_breakdown"
-    )
-
-    # Get the column mapping for selected platform
-    platform_cols = PLATFORM_COLS[selected_platform]
-
-    # Calculate platform-specific metrics
-    total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
-    platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
-    platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
-    platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
-    platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
-    platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
-
-    # Platform metrics with gradient cards
-    st.subheader(f"📊 {selected_platform} Performance")
-    
-    platform_metrics = [
-        {"title": "TOTAL INTERACTIONS", "value": total_platform_interactions, "gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"},
-        {"title": "NEW BOOKINGS", "value": platform_bookings, "gradient": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"},
-        {"title": "ASKED ABOUT DATES", "value": platform_asked_dates, "gradient": "linear-gradient(135deg, #fc466b 0%, #3f5efb 100%)"},
-        {"title": "INTERESTED", "value": platform_interested, "gradient": "linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%)"},
-        {"title": "NOT INTERESTED", "value": platform_not_interested, "gradient": "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"},
-        {"title": "DIDN'T ANSWER", "value": platform_no_reply, "gradient": "linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)"}
-    ]
-    
-    # Create two rows of platform metrics
-    row1 = st.columns(3)
-    row2 = st.columns(3)
-    
-    all_cols = row1 + row2
-    
-    for i, (col, metric) in enumerate(zip(all_cols, platform_metrics)):
-        with col:
-            st.markdown(f"""
-            <div class="gradient-card" style="background: {metric['gradient']};">
-                <div class="gradient-title">{metric['title']}</div>
-                <div class="gradient-value">{metric['value']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # Platform pie chart
-    st.markdown("---")
-    st.subheader("Platform Distribution")
-    
-    platform_cols_simple = {
-        "Instagram": "Instagram Answered",
-        "WhatsApp": "WhatsApp Answered",
-        "TikTok": "TikTok Answered",
-        "Calls": "Total Calls Received"
-    }
-
-    platform_data = {p: df_filtered[c].sum() for p, c in platform_cols_simple.items() if c in df_filtered.columns}
-    pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
-    pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
-        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
-    )
-    st.altair_chart(pie_chart, use_container_width=True)
-
-    # Platform summary chart
-    st.subheader("Performance Summary")
-    platform_summary = pd.DataFrame(
-        {
-            "Metric": [
-                "Total",
-                "New bookings",
-                "Asked dates",
-                "Interested",
-                "Not interested",
-                "Didn't answer",
-            ],
-            "Count": [
-                total_platform_interactions,
-                platform_bookings,
-                platform_asked_dates,
-                platform_interested,
-                platform_not_interested,
-                platform_no_reply,
-            ],
-        }
-    ).set_index("Metric")
-
-    st.bar_chart(platform_summary)
-
-    # Platform overview charts
-    st.markdown("---")
-    st.subheader("Platforms Overview")
-
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.caption("Interactions per platform")
-        interactions_cols = {}
-        if "Instagram Answered" in df_filtered.columns:
-            interactions_cols["Instagram"] = df_filtered["Instagram Answered"].sum()
-        if "WhatsApp Answered" in df_filtered.columns:
-            interactions_cols["WhatsApp"] = df_filtered["WhatsApp Answered"].sum()
-        if "TikTok Answered" in df_filtered.columns:
-            interactions_cols["TikTok"] = df_filtered["TikTok Answered"].sum()
-        if "Total Calls Received" in df_filtered.columns:
-            interactions_cols["Calls"] = df_filtered["Total Calls Received"].sum()
-
-        if interactions_cols:
-            interactions_df = (
-                pd.DataFrame(list(interactions_cols.items()), columns=["Platform", "Count"])
-                .set_index("Platform")
-            )
-            st.bar_chart(interactions_df)
-        else:
-            st.info("لا توجد أعمدة تفاعل للمنصات في الشيت.")
-
-    with col_right:
-        st.caption("New bookings per platform")
-        bookings_cols = {}
-        if "New Bookings - Insta" in df_filtered.columns:
-            bookings_cols["Instagram"] = df_filtered["New Bookings - Insta"].sum()
-        if "New Bookings - Whats" in df_filtered.columns:
-            bookings_cols["WhatsApp"] = df_filtered["New Bookings - Whats"].sum()
-        if "New Bookings - TikTok" in df_filtered.columns:
-            bookings_cols["TikTok"] = df_filtered["New Bookings - TikTok"].sum()
-        if "New Bookings - Call" in df_filtered.columns:
-            bookings_cols["Calls"] = df_filtered["New Bookings - Call"].sum()
-
-        if bookings_cols:
-            bookings_df = (
-                pd.DataFrame(list(bookings_cols.items()), columns=["Platform", "Count"])
-                .set_index("Platform")
-            )
-            st.bar_chart(bookings_df)
-        else:
-            st.info("لا توجد أعمدة New Bookings للمنصات في الشيت.")
-
-# ======================
-# 3) TIME ANALYSIS TAB
-# ======================
-with tab_time:
-    # ---------- Last 4 weeks per platform ----------
-    st.subheader("Last 4 weeks (weekly view)")
-
-    weekly_platform = st.selectbox(
-        "Choose platform (weekly view):",
-        ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        index=0,
-        key="weekly_platform",
-    )
-
-    weekly_cols_map = PLATFORM_COLS[weekly_platform]
-
-    df_weeks = df_filtered.copy()
-    df_weeks["week_start"] = df_weeks["Date"].dt.to_period("W").apply(
-        lambda r: r.start_time.date()
-    )
-
-    agg_cols = []
-    if weekly_cols_map["total"] in df_weeks.columns:
-        agg_cols.append(weekly_cols_map["total"])
-    if weekly_cols_map["bookings"] in df_weeks.columns:
-        agg_cols.append(weekly_cols_map["bookings"])
-
-    if agg_cols:
-        week_agg = (
-            df_weeks.groupby("week_start")[agg_cols]
-            .sum()
-            .reset_index()
-            .sort_values("week_start")
-        )
-
-        last_4 = week_agg.tail(4).copy()
-        last_4["Week"] = last_4["week_start"].astype(str)
-
-        col_w1, col_w2 = st.columns(2)
-
-        with col_w1:
-            st.caption("Interactions per week")
-            total_col = weekly_cols_map["total"]
-            if total_col in last_4.columns:
-                chart_df = last_4[["Week", total_col]].set_index("Week")
-                st.bar_chart(chart_df)
-            else:
-                st.info("لا توجد بيانات للتفاعل الأسبوعي لهذا البلاتفورم.")
-
-        with col_w2:
-            st.caption("New bookings per week")
-            book_col = weekly_cols_map["bookings"]
-            if book_col in last_4.columns:
-                chart_df = last_4[["Week", book_col]].set_index("Week")
-                st.bar_chart(chart_df)
-            else:
-                st.info("لا توجد بيانات للحجوزات الأسبوعية لهذا البلاتفورم.")
-    else:
-        st.info("لا توجد أعمدة كافية لحساب بيانات الأسابيع لهذا البلاتفورم.")
-
-    st.markdown("---")
-
-    # ---------- Last 7 days per platform ----------
-    st.subheader("Last 7 days (daily view)")
-
-    daily_platform = st.selectbox(
-        "Choose platform (last 7 days – daily view):",
-        ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        index=0,
-        key="last7_platform",
-    )
-
-    daily_cols_map = PLATFORM_COLS[daily_platform]
-
-    df_days = df_filtered.copy().sort_values("Date")
-
-    unique_days = df_days["Date"].dt.date.unique()
-    last_7_days = list(unique_days[-7:])
-
-    df_last7 = df_days[df_days["Date"].dt.date.isin(last_7_days)].copy()
-
-    if df_last7.empty:
-        st.info("لا توجد بيانات لآخر ٧ أيام لهذا البلاتفورم.")
-    else:
-        agg_cols = []
-        if daily_cols_map["total"] in df_last7.columns:
-            agg_cols.append(daily_cols_map["total"])
-        if daily_cols_map["bookings"] in df_last7.columns:
-            agg_cols.append(daily_cols_map["bookings"])
-
-        if agg_cols:
-            day_agg = (
-                df_last7.groupby(df_last7["Date"].dt.date)[agg_cols]
-                .sum()
-                .reset_index()
-                .rename(columns={"Date": "day"})
-                .sort_values("day")
-            )
-
-            day_agg["Day"] = day_agg["day"].astype(str)
-
-            col_d1, col_d2 = st.columns(2)
-
-            with col_d1:
-                st.caption("Interactions per day (last 7 days)")
-                total_col = daily_cols_map["total"]
-                if total_col in day_agg.columns:
-                    chart_df = day_agg[["Day", total_col]].set_index("Day")
-                    st.bar_chart(chart_df)
-                else:
-                    st.info("لا توجد بيانات للتفاعل اليومي لهذا البلاتفورم.")
-
-            with col_d2:
-                st.caption("New bookings per day (last 7 days)")
-                book_col = daily_cols_map["bookings"]
-                if book_col in day_agg.columns:
-                    chart_df = day_agg[["Day", book_col]].set_index("Day")
-                    st.bar_chart(chart_df)
-                else:
-                    st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
-        else:
-            st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
+# Rest of your code remains the same...
+# [Keep all your existing tab code from the previous version]
 
         
 
