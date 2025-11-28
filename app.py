@@ -237,8 +237,7 @@ row3_col1, row3_col2 = st.columns(2)
 
 with row3_col1:
     st.subheader("Last 4 Weeks")
-    df_filtered["week_start"] = 
-df_filtered["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
+    df_filtered["week_start"] = df_filtered["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
     weekly = df_filtered.groupby("week_start")[["total_interactions", "total_new_bookings"]].sum().reset_index()
 
     weekly_chart = alt.Chart(weekly.melt(id_vars=["week_start"], var_name="Metric", value_name="Value")).mark_bar().encode(
