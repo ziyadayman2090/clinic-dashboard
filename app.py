@@ -171,16 +171,11 @@ st.title("📊 AL-Basma Clinic Leads Dashboard")
 # ======================
 # KPIs فوق
 # ======================
-total_interactions = 
-int(df_filtered["total_interactions"].sum())
-total_new_bookings = 
-int(df_filtered["total_new_bookings"].sum())
-total_interested = 
-int(df_filtered["total_interested"].sum())
-total_not_interested = 
-int(df_filtered["total_not_interested"].sum())
-total_no_reply = 
-int(df_filtered["total_no_reply"].sum())
+total_interactions = int(df_filtered["total_interactions"].sum())
+total_new_bookings = int(df_filtered["total_new_bookings"].sum())
+total_interested = int(df_filtered["total_interested"].sum())
+total_not_interested = int(df_filtered["total_not_interested"].sum())
+total_no_reply = int(df_filtered["total_no_reply"].sum())
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Interactions", total_interactions)
