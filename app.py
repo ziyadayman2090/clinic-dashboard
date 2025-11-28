@@ -303,20 +303,24 @@ with col_sent:
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
-    platform = st.selectbox(
-        "Choose the platform:",
-        ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        index=0,
-    )
+    
+platform_cols = {
+        "Instagram": "Instagram Answered",
+        "WhatsApp": "WhatsApp Answered",
+        "TikTok": "TikTok Answered",
+        "Calls": "Total Calls Received"
+    }
 
-    cols_map = PLATFORM_COLS[platform]
 
-    total_platform_interactions = safe_col_sum(df_filtered, cols_map["total"])
-    platform_bookings = safe_col_sum(df_filtered, cols_map["bookings"])
-    platform_asked_dates = safe_col_sum(df_filtered, cols_map["asked_dates"])
-    platform_interested = safe_col_sum(df_filtered, cols_map["interested"])
-    platform_not_interested = safe_col_sum(df_filtered, cols_map["not_interested"])
-    platform_no_reply = safe_col_sum(df_filtered, cols_map["no_reply"])
+   
+platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
+    pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
+    pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
+        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
+)
+    st.altair_chart(pie_chart, use_container_width=True)
+
+
 
     # KPIs للمنصة المختارة
     k1, k2, k3 = st.columns(3)
