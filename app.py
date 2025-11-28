@@ -388,7 +388,7 @@ pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"]
 pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
         theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
 )
-    st.altair_chart(pie_chart, use_container_width=True)
+st.altair_chart(pie_chart, use_container_width=True)
 
 
 
