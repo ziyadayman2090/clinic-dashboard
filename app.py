@@ -184,19 +184,32 @@ c3.metric("Interested", total_interested)
 c4.metric("Not Interested", total_not_interested)
 c5.metric("Didn't Answer", total_no_reply)
 
+
 st.markdown("---")
 
-row_1col1,row1_col2=st.columns(2)
+# Row 1: Inquiry Trends + Sentiment
+row1_col1, row1_col2 = st.columns(2)
 
 with row1_col1:
     st.subheader("Inquiry Trends")
     daily = df_filtered.groupby("Date")[["total_interactions", "total_interested", "total_new_bookings", "total_not_interested"]].sum().reset_index()
     daily_melted = daily.melt(id_vars=["Date"], var_name="Metric", value_name="Value")
-    
     trend_chart = alt.Chart(daily_melted).mark_line(point=True).encode(
         x="Date:T", y="Value:Q", color="Metric:N", tooltip=["Date", "Metric", "Value"]
     ).properties(width="container")
     st.altair_chart(trend_chart, use_container_width=True)
+
+with row1_col2:
+    st.subheader("Customer Sentiment")
+    negative_total = int(df_filtered["total_not_interested"].sum())
+    neutral_total = int(df_filtered["total_asked_dates"].sum())
+    positive_total = int(df_filtered["total_new_bookings"].sum() + df_filtered["total_interested"].sum())
+    sentiment_df = pd.DataFrame({"Sentiment": ["Negative", "Neutral", "Positive"], "Count": [negative_total, neutral_total, positive_total]})
+    sentiment_chart = alt.Chart(sentiment_df).mark_bar().encode(
+        x="Sentiment:N", y="Count:Q", color="Sentiment:N", tooltip=["Sentiment", "Count"]
+    ).properties(width="container")
+    st.altair_chart(sentiment_chart, use_container_width=True)
+
 
 
 with row1_col2:
