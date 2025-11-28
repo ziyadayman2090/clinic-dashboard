@@ -188,6 +188,24 @@ st.markdown("---")
 
 row_1col1,row1_col2=st.columns(2)
 
+total_interactions = int(df_filtered["total_interactions"].sum())
+total_new_bookings = int(df_filtered["total_new_bookings"].sum())
+total_interested = int(df_filtered["total_interested"].sum())
+total_not_interested = int(df_filtered["total_not_interested"].sum())
+total_no_reply = int(df_filtered["total_no_reply"].sum())
+
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Total Interactions", total_interactions)
+c2.metric("New Bookings", total_new_bookings)
+c3.metric("Interested", total_interested)
+c4.metric("Not Interested", total_not_interested)
+c5.metric("Didn't Answer", total_no_reply)
+
+st.markdown("---")
+
+# Fixed the variable name - changed row_1col1 to row1_col1
+row1_col1, row1_col2 = st.columns(2)
+
 with row1_col1:
     st.subheader("Inquiry Trends")
     daily = df_filtered.groupby("Date")[["total_interactions", "total_interested", "total_new_bookings", "total_not_interested"]].sum().reset_index()
@@ -197,7 +215,6 @@ with row1_col1:
         x="Date:T", y="Value:Q", color="Metric:N", tooltip=["Date", "Metric", "Value"]
     ).properties(width="container")
     st.altair_chart(trend_chart, use_container_width=True)
-
 
 with row1_col2:
     st.subheader("Customer Sentiment")
@@ -210,6 +227,7 @@ with row1_col2:
         x="Sentiment:N", y="Count:Q", color="Sentiment:N", tooltip=["Sentiment", "Count"]
     ).properties(width="container")
     st.altair_chart(sentiment_chart, use_container_width=True)
+
 st.markdown("---")
 
 row2_col1, row2_col2 = st.columns(2)
