@@ -1,6 +1,7 @@
 [theme]
-base = "dark"                 # أو "light" لو عايزها فاتحة
-primaryColor = "#137333"      # أخضر غامق (زي Looker)
-backgroundColor = "#111418"   # خلفية غامقة للصفحة
-secondaryBackgroundColor = "#1d242b"  # خلفية البانلز
-textColor = "#ffffff"
+primaryColor="#0f9d58"
+backgroundColor="#ffffff"
+secondaryBackgroundColor="#e6f3ec"
+textColor="#1c1c1c"
+font="sans serif"
+
