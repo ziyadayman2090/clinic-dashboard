@@ -474,43 +474,74 @@ with col_sent:
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
-    platform_cols = {
+    # Platform selection for the breakdown
+    selected_platform = st.selectbox(
+        "Select Platform:",
+        ["Instagram", "WhatsApp", "TikTok", "Calls"],
+        key="platform_breakdown"
+    )
+
+    # Define platform columns mapping
+    PLATFORM_COLS_DETAILED = {
+        "Instagram": {
+            "interactions": "Instagram Answered",
+            "bookings": "New Bookings - Insta",
+            "asked_dates": "Asked About Dates - Insta",
+            "interested": "Interested - Insta",
+            "not_interested": "Not Interested - Insta",
+            "no_reply": "Didn't Answer - Insta"
+        },
+        "WhatsApp": {
+            "interactions": "WhatsApp Answered",
+            "bookings": "New Bookings - Whats",
+            "asked_dates": "Asked About Dates - Whats",
+            "interested": "Interested - Whats",
+            "not_interested": "Not Interested - Whats",
+            "no_reply": "Didn't Answer - Whats"
+        },
+        "TikTok": {
+            "interactions": "TikTok Answered",
+            "bookings": "New Bookings - TikTok",
+            "asked_dates": "Asked About Dates - TikTok",
+            "interested": "Interested - TikTok",
+            "not_interested": "Not Interested - TikTok",
+            "no_reply": "Didn't Answer - TikTok"
+        },
+        "Calls": {
+            "interactions": "Total Calls Received",
+            "bookings": "New Bookings - Call",
+            "asked_dates": "Asked About Dates - Call",
+            "interested": "Interested - Call",
+            "not_interested": "Not Interested - Call",
+            "no_reply": "Didn't Answer - Call"
+        }
+    }
+
+    # Get the column mapping for selected platform
+    platform_cols = PLATFORM_COLS_DETAILED[selected_platform]
+
+    # Calculate platform-specific metrics
+    total_platform_interactions = int(df_filtered[platform_cols["interactions"]].sum()) if platform_cols["interactions"] in df_filtered.columns else 0
+    platform_bookings = int(df_filtered[platform_cols["bookings"]].sum()) if platform_cols["bookings"] in df_filtered.columns else 0
+    platform_asked_dates = int(df_filtered[platform_cols["asked_dates"]].sum()) if platform_cols["asked_dates"] in df_filtered.columns else 0
+    platform_interested = int(df_filtered[platform_cols["interested"]].sum()) if platform_cols["interested"] in df_filtered.columns else 0
+    platform_not_interested = int(df_filtered[platform_cols["not_interested"]].sum()) if platform_cols["not_interested"] in df_filtered.columns else 0
+    platform_no_reply = int(df_filtered[platform_cols["no_reply"]].sum()) if platform_cols["no_reply"] in df_filtered.columns else 0
+
+    # Platform pie chart (existing code)
+    platform_cols_simple = {
         "Instagram": "Instagram Answered",
-        "WhatsApp": "WhatsApp Answered", 
+        "WhatsApp": "WhatsApp Answered",
         "TikTok": "TikTok Answered",
         "Calls": "Total Calls Received"
     }
 
-    platform_data = {p: df_filtered[c].sum() for p, c in platform_cols.items() if c in df_filtered.columns}
+    platform_data = {p: df_filtered[c].sum() for p, c in platform_cols_simple.items() if c in df_filtered.columns}
     pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
     pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
         theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
     )
     st.altair_chart(pie_chart, use_container_width=True)
-
-    # Calculate platform metrics BEFORE using them
-    total_platform_interactions = int(sum(platform_data.values()))
-    
-    # Calculate platform bookings
-    platform_bookings = 0
-    booking_cols = ["New Bookings - Insta", "New Bookings - Whats", "New Bookings - TikTok", "New Bookings - Call"]
-    for col in booking_cols:
-        if col in df_filtered.columns:
-            platform_bookings += int(df_filtered[col].sum())
-    
-    # Calculate other platform metrics (you'll need to define these based on your actual column names)
-    platform_asked_dates = 0  # Replace with actual calculation
-    platform_interested = 0   # Replace with actual calculation  
-    platform_not_interested = 0  # Replace with actual calculation
-    platform_no_reply = 0     # Replace with actual calculation
-
-    # Add calculations for the missing variables based on your data structure
-    # For example:
-    # if "Asked Dates - Insta" in df_filtered.columns:
-    #     platform_asked_dates += int(df_filtered["Asked Dates - Insta"].sum())
-    # if "Asked Dates - Whats" in df_filtered.columns:
-    #     platform_asked_dates += int(df_filtered["Asked Dates - Whats"].sum())
-    # ... and similarly for other metrics
 
     # KPIs للمنصة المختارة
     k1, k2, k3 = st.columns(3)
@@ -528,7 +559,7 @@ with tab_platforms:
         {
             "Metric": [
                 "Total",
-                "New bookings", 
+                "New bookings",
                 "Asked dates",
                 "Interested",
                 "Not interested",
@@ -537,7 +568,7 @@ with tab_platforms:
             "Count": [
                 total_platform_interactions,
                 platform_bookings,
-                platform_asked_dates, 
+                platform_asked_dates,
                 platform_interested,
                 platform_not_interested,
                 platform_no_reply,
