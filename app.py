@@ -326,7 +326,7 @@ st.markdown("---")
 # ======================
 view = st.radio(
     "View",
-    ["Overview", "Platforms", "Time analysis"],
+    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"],
     horizontal=True,
 )
 
