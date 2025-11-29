@@ -536,10 +536,11 @@ with tab_platforms:
     platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
     platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
     platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
-      if platform_no_reply == 0 and total_platform_interactions > 0:
+
+    if platform_no_reply == 0 and total_platform_interactions > 0:
         answered_total = platform_bookings + platform_asked_dates + platform_interested + platform_not_interested
         calculated_no_reply = total_platform_interactions - answered_total
-      if calculated_no_reply > 0:
+        if calculated_no_reply > 0:
             platform_no_reply = calculated_no_reply
 
     # Platform metrics with gradient cards
