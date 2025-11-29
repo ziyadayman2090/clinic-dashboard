@@ -506,9 +506,9 @@ PLATFORM_COLS = {
     "Calls": {
         "total": "Total Calls Received",
         "bookings": "New Bookings - Call",
-        "asked_dates": "Asked About Dates - Call",
-        "interested": "Interested - Call",
-        "not_interested": "Not Interested - Call",
+        "asked_dates": "total_asked_dates",       
+        "interested": "total_interested",           
+        "not_interested": "total_not_interested",  
         "no_reply": "Didn't Answer - Call",
     },
 }
@@ -527,41 +527,6 @@ with tab_platforms:
 
     platform_cols = PLATFORM_COLS[selected_platform]
 
-    # 🔍 DEBUG: Check why these 3 metrics are zero
-    st.subheader("🔍 DEBUG - Why Are These Zero?")
-    
-    problematic_metrics = ["asked_dates", "interested", "not_interested"]
-    
-    for metric in problematic_metrics:
-        col_name = platform_cols[metric]
-        st.write(f"**{metric.upper()}**: '{col_name}'")
-        
-        if col_name in df_filtered.columns:
-            col_data = df_filtered[col_name]
-            sum_value = col_data.sum()
-            non_zero_count = (col_data != 0).sum()
-            st.write(f"✅ Column exists | Sum: {sum_value} | Non-zero rows: {non_zero_count}")
-            
-            # Show actual non-zero values if any exist
-            if non_zero_count > 0:
-                non_zero_values = col_data[col_data != 0].head()
-                st.write(f"Non-zero values: {non_zero_values.tolist()}")
-        else:
-            st.error(f"❌ Column NOT FOUND!")
-            # Show similar columns that might be the correct ones
-            similar_cols = [c for c in df_filtered.columns if any(word in c.lower() for word in metric.split('_'))]
-            if similar_cols:
-                st.write(f"Similar columns: {similar_cols}")
-
-    # Also check the columns that ARE working
-    st.write("**Columns that WORK:**")
-    working_metrics = ["total", "bookings"]
-    for metric in working_metrics:
-        col_name = platform_cols[metric]
-        if col_name in df_filtered.columns:
-            sum_value = df_filtered[col_name].sum()
-            st.write(f"✅ {metric}: '{col_name}' = {sum_value}")
-
     # Calculate metrics
     total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
     platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
@@ -572,8 +537,6 @@ with tab_platforms:
     answered_interactions = (platform_bookings + platform_asked_dates + 
                            platform_interested + platform_not_interested)
     platform_no_reply = max(0, total_platform_interactions - answered_interactions)
-
-    # Continue with the rest of your code...
 
     # Platform metrics with gradient cards
     st.subheader(f"📊 {selected_platform} Performance")
