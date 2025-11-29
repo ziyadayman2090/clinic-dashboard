@@ -286,7 +286,7 @@ if df_filtered.empty:
 # ======================
 # العنوان
 # ======================
-st.title("📊 AL-Basma Clinic Leads Dashboard")
+st.title("📊 AL-Basma Clinic ")
 
 # ======================
 # Modern KPI Cards (مع الإيموجيز)
