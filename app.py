@@ -540,6 +540,51 @@ with tab_platforms:
                            platform_interested + platform_not_interested)
     platform_no_reply = max(0, total_platform_interactions - answered_interactions)
 
+    with tab_platforms:
+    st.subheader("Platform Breakdown (per platform)")
+
+    selected_platform = st.selectbox(
+        "Select Platform:",
+        ["Instagram", "WhatsApp", "TikTok", "Calls"],
+        key="platform_breakdown_select"
+    )
+
+    platform_cols = PLATFORM_COLS[selected_platform]
+
+    # 🔍 DEBUG: Check what's happening with the calculation
+    st.subheader("🔍 DEBUG - Didn't Answer Calculation")
+    
+    # Calculate metrics
+    total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
+    platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
+    platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
+    platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
+    platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
+    
+    # Show all values
+    st.write("**Raw Values:**")
+    st.write(f"Total: {total_platform_interactions}")
+    st.write(f"Bookings: {platform_bookings}")
+    st.write(f"Asked Dates: {platform_asked_dates}")
+    st.write(f"Interested: {platform_interested}")
+    st.write(f"Not Interested: {platform_not_interested}")
+    
+    # Calculate step by step
+    answered_interactions = (platform_bookings + platform_asked_dates + 
+                           platform_interested + platform_not_interested)
+    st.write(f"**Calculation:**")
+    st.write(f"Answered = {platform_bookings} + {platform_asked_dates} + {platform_interested} + {platform_not_interested} = {answered_interactions}")
+    
+    platform_no_reply = max(0, total_platform_interactions - answered_interactions)
+    st.write(f"Didn't Answer = {total_platform_interactions} - {answered_interactions} = {platform_no_reply}")
+
+    # Check if the issue is with the total columns
+    st.write("**Checking Total Columns:**")
+    st.write(f"total_asked_dates sum: {df_filtered['total_asked_dates'].sum() if 'total_asked_dates' in df_filtered.columns else 'COLUMN NOT FOUND'}")
+    st.write(f"total_interested sum: {df_filtered['total_interested'].sum() if 'total_interested' in df_filtered.columns else 'COLUMN NOT FOUND'}")
+    st.write(f"total_not_interested sum: {df_filtered['total_not_interested'].sum() if 'total_not_interested' in df_filtered.columns else 'COLUMN NOT FOUND'}")
+    st.write(f"total_no_reply sum: {df_filtered['total_no_reply'].sum() if 'total_no_reply' in df_filtered.columns else 'COLUMN NOT FOUND'}")
+
     # Platform metrics with gradient cards
     st.subheader(f"📊 {selected_platform} Performance")
     
