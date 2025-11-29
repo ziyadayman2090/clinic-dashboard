@@ -469,6 +469,11 @@ elif view == "Platforms":
             """, unsafe_allow_html=True)
 
     st.markdown("---")
+    
+    tab_overview, tab_platforms, tab_time = st.tabs(
+    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
+)
+
     st.subheader("Platform Distribution")
 
     platform_cols_simple = {
