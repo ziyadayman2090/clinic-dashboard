@@ -540,17 +540,6 @@ with tab_platforms:
                            platform_interested + platform_not_interested)
     platform_no_reply = max(0, total_platform_interactions - answered_interactions)
 
-    with tab_platforms:
-    st.subheader("Platform Breakdown (per platform)")
-
-    selected_platform = st.selectbox(
-        "Select Platform:",
-        ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        key="platform_breakdown_select"
-    )
-
-    platform_cols = PLATFORM_COLS[selected_platform]
-
     # 🔍 DEBUG: Check what's happening with the calculation
     st.subheader("🔍 DEBUG - Didn't Answer Calculation")
     
