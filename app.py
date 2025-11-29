@@ -509,9 +509,11 @@ PLATFORM_COLS = {
         "asked_dates": "total_asked_dates",       
         "interested": "total_interested",           
         "not_interested": "total_not_interested",  
-        "no_reply": "Didn't Answer - Call",
+        "no_reply": "total_no_reply",
     },
 }
+
+
 
 # ======================
 # 2) PLATFORMS TAB
