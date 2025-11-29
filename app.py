@@ -166,7 +166,7 @@ def safe_sum_per_row(df, cols):
     return df[existing].sum(axis=1)
 
 def safe_col_sum(df, col_name):
-    return int(df[col_name].sum()) if col_name in df.columns else 0
+    return int(df[col_name].sum()) if col_name and col_name in df.columns else 0
 
 def find_platform_columns(df, platform_name):
     """Dynamically find the correct column names for each platform"""
@@ -178,7 +178,7 @@ def find_platform_columns(df, platform_name):
         "asked_dates": ["asked about dates", "asked dates"],
         "interested": ["interested"],
         "not_interested": ["not interested"],
-        "no_reply": ["didn", "answer", "no reply", "no answer"]
+        "no_reply": ["didn't answer", "didnt answer", "no reply", "no answer"]
     }
     
     found_cols = {}
@@ -189,7 +189,6 @@ def find_platform_columns(df, platform_name):
             col_lower = col.lower()
             if (platform_lower in col_lower or 
                 (platform_lower == "calls" and "call" in col_lower)):
-                
                 for pattern in pattern_list:
                     if pattern in col_lower:
                         matching_cols.append(col)
@@ -213,6 +212,35 @@ def load_data():
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date")
 
+    # نحاول نلقط أعمدة Didn't Answer لأي منصة (Insta/Whats/TikTok)
+    didnt_answer_cols = [col for col in df.columns if "didn" in col.lower() or "answer" in col.lower()]
+    
+    possible_didnt_answer_columns = [
+        ["Didn't Answer - Insta", "Didn't Answer - Whats", "Didn't Answer - TikTok"],
+        ["Didn’t Answer - Insta", "Didn’t Answer - Whats", "Didn’t Answer - TikTok"],
+        ["Didnt Answer - Insta", "Didnt Answer - Whats", "Didnt Answer - TikTok"],
+        ["Didn't Answer- Insta", "Didn't Answer- Whats", "Didn't Answer- TikTok"],
+    ]
+    
+    selected_columns = None
+    for column_set in possible_didnt_answer_columns:
+        if all(col in df.columns for col in column_set):
+            selected_columns = column_set
+            break
+    
+    if selected_columns is None and didnt_answer_cols:
+        selected_columns = []
+        for platform in ["Insta", "Whats", "TikTok"]:
+            platform_cols = [col for col in didnt_answer_cols if platform.lower() in col.lower()]
+            if platform_cols:
+                selected_columns.append(platform_cols[0])
+            else:
+                selected_columns.append(None)
+    
+    if selected_columns is None:
+        selected_columns = [None, None, None]
+
+    # إجماليات
     df["total_interactions"] = safe_sum_per_row(
         df,
         [
@@ -260,19 +288,39 @@ def load_data():
         ],
     )
 
-    # ======= الجزء المهم: Didn't Answer (باستخدام نفس أسماء الأعمدة في الشيت) =======
-    df["total_no_reply"] = safe_sum_per_row(
-        df,
-        [
-            "Didn’t Answer - Insta",
-            "Didn’t Answer - Whats",
-            "Didn’t Answer - TikTok",
-            "Didn’t Answer - Call",
-        ],
-    )
-    # ================================================================
+    # إجمالي Didn't Answer للمنصات الأونلاين
+    valid_didnt_answer_cols = [col for col in selected_columns if col is not None and col in df.columns]
+    df["total_no_reply"] = safe_sum_per_row(df, valid_didnt_answer_cols)
+
+    # ====== NEW: نضيف Calls في Didn't Answer ======  # <<< NEW
+    call_no_reply_cols = [
+        col for col in df.columns
+        if "call" in col.lower() and (
+            "didn" in col.lower() or "no reply" in col.lower() or "no answer" in col.lower()
+        )
+    ]
+
+    if call_no_reply_cols:
+        # لو في عمود واضح للمكالمات اللي محدش رد عليها
+        df["total_no_reply"] = df["total_no_reply"] + safe_sum_per_row(df, call_no_reply_cols)
+    else:
+        # مفيش عمود؟ نستنتجه من توتال المكالمات - باقي التصنيفات
+        if "Total Calls Received" in df.columns:
+            total_calls = df["Total Calls Received"]
+            booked_calls = df["New Bookings - Call"] if "New Bookings - Call" in df.columns else 0
+            asked_calls = df["Asked About Dates - Call"] if "Asked About Dates - Call" in df.columns else 0
+            interested_calls = df["Interested - Call"] if "Interested - Call" in df.columns else 0
+            not_interested_calls = df["Not Interested - Call"] if "Not Interested - Call" in df.columns else 0
+
+            derived_calls_no_reply = total_calls - (
+                booked_calls + asked_calls + interested_calls + not_interested_calls
+            )
+            derived_calls_no_reply = derived_calls_no_reply.clip(lower=0)
+            df["total_no_reply"] = df["total_no_reply"] + derived_calls_no_reply
+    # ====== END NEW ======
 
     return df
+
 
 # ======================
 # تحميل الداتا
@@ -333,13 +381,10 @@ if df_filtered.empty:
     st.stop()
 
 # ======================
-# العنوان
+# العنوان و الكروت
 # ======================
 st.title("📊 AL-Basma Clinic Leads Dashboard")
 
-# ======================
-# Modern KPI Cards
-# ======================
 st.subheader("📊 Overview Metrics")
 
 total_interactions = int(df_filtered["total_interactions"].sum()) if "total_interactions" in df_filtered.columns else 0
@@ -353,11 +398,11 @@ metrics_data = [
     {"icon": "✅", "title": "NEW BOOKINGS", "value": total_new_bookings, "subtitle": "confirmed appointments"},
     {"icon": "🎯", "title": "INTERESTED", "value": total_interested, "subtitle": "potential clients"},
     {"icon": "❌", "title": "NOT INTERESTED", "value": total_not_interested, "subtitle": "declined offers"},
-    {"icon": "⏸️", "title": "DIDN'T ANSWER", "value": total_no_reply, "subtitle": "no response"}
+    {"icon": "⏸️", "title": "DIDN'T ANSWER", "value": total_no_reply, "subtitle": "no response"},
 ]
 
 cols = st.columns(5)
-for i, (col, metric) in enumerate(zip(cols, metrics_data)):
+for col, metric in zip(cols, metrics_data):
     with col:
         st.markdown(f"""
         <div class="modern-card">
@@ -371,15 +416,13 @@ for i, (col, metric) in enumerate(zip(cols, metrics_data)):
 st.markdown("---")
 
 # ======================
-# Tabs
+# Tabs رئيسية
 # ======================
 tab_overview, tab_platforms, tab_time = st.tabs(
     ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
 )
 
-# ======================
-# 1) OVERVIEW TAB
-# ======================
+# ============= OVERVIEW TAB =============
 with tab_overview:
     col_trend, col_sent = st.columns(2)
 
@@ -433,7 +476,7 @@ with tab_overview:
         st.altair_chart(sentiment_chart, use_container_width=True)
 
 # ======================
-# PLATFORM_COLS (مهم لجزء المنصات)
+# خريطة أعمدة المنصات
 # ======================
 PLATFORM_COLS = {
     "Instagram": {
@@ -442,7 +485,7 @@ PLATFORM_COLS = {
         "asked_dates": "Asked About Dates - Insta",
         "interested": "Interested - Insta",
         "not_interested": "Not Interested - Insta",
-        "no_reply": "Didn’t Answer - Insta",
+        "no_reply": "Didn't Answer - Insta",
     },
     "WhatsApp": {
         "total": "WhatsApp Answered",
@@ -450,7 +493,7 @@ PLATFORM_COLS = {
         "asked_dates": "Asked About Dates - Whats",
         "interested": "Interested - Whats",
         "not_interested": "Not Interested - Whats",
-        "no_reply": "Didn’t Answer - Whats",
+        "no_reply": "Didn't Answer - Whats",
     },
     "TikTok": {
         "total": "TikTok Answered",
@@ -458,7 +501,7 @@ PLATFORM_COLS = {
         "asked_dates": "Asked About Dates - TikTok",
         "interested": "Interested - TikTok",
         "not_interested": "Not Interested - TikTok",
-        "no_reply": "Didn’t Answer - TikTok",
+        "no_reply": "Didn't Answer - TikTok",
     },
     "Calls": {
         "total": "Total Calls Received",
@@ -466,13 +509,11 @@ PLATFORM_COLS = {
         "asked_dates": "Asked About Dates - Call",
         "interested": "Interested - Call",
         "not_interested": "Not Interested - Call",
-        "no_reply": "Didn’t Answer - Call",
+        "no_reply": None,   # مالناش عمود ثابت هنا
     },
 }
 
-# ======================
-# 2) PLATFORMS TAB
-# ======================
+# ============= PLATFORMS TAB =============
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
@@ -491,6 +532,16 @@ with tab_platforms:
     platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
     platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
 
+    # ====== NEW: fallback خاص بـ Calls ======  # <<< NEW
+    if selected_platform == "Calls" and platform_no_reply == 0:
+        platform_no_reply = max(
+            total_platform_interactions
+            - (platform_bookings + platform_asked_dates +
+               platform_interested + platform_not_interested),
+            0,
+        )
+    # ====== END NEW ======
+
     st.subheader(f"📊 {selected_platform} Performance")
     
     platform_metrics = [
@@ -506,7 +557,7 @@ with tab_platforms:
     row2 = st.columns(3)
     all_cols = row1 + row2
     
-    for i, (col, metric) in enumerate(zip(all_cols, platform_metrics)):
+    for col, metric in zip(all_cols, platform_metrics):
         with col:
             st.markdown(f"""
             <div class="gradient-card" style="background: {metric['gradient']};">
@@ -603,9 +654,7 @@ with tab_platforms:
         else:
             st.info("لا توجد أعمدة New Bookings للمنصات في الشيت.")
 
-# ======================
-# 3) TIME ANALYSIS TAB
-# ======================
+# ============= TIME TAB (نفس بتاعك، ما اتغيرش) =============
 with tab_time:
     st.subheader("Last 4 weeks (weekly view)")
 
@@ -723,9 +772,7 @@ with tab_time:
                     st.info("لا توجد بيانات للحجوزات اليومية لهذا البلاتفورم.")
         else:
             st.info("لا توجد أعمدة كافية لحساب بيانات آخر ٧ أيام لهذا البلاتفورم.")
-
-# CSS IS WORKING AND CALLS HAVE BEEN CALCULATED
-
+#CSS IS WORKING AND CALLS HAVE BEEN CALCULATED
 
 
 
