@@ -320,6 +320,9 @@ for col, metric in zip(cols, metrics_data):
         """, unsafe_allow_html=True)
 
 st.markdown("---")
+tab_overview, tab_platforms, tab_time = st.tabs(
+    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
+)
 
 # ======================
 # بدل tabs عملنا radio عشان ما يرجعكش على Overview كل ما تختار platform
