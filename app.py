@@ -117,24 +117,6 @@ st.markdown("""
         padding-top: 2rem;
         padding-bottom: 2rem;
     }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #f8f9fa;
-        border-radius: 8px 8px 0px 0px;
-        gap: 8px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #667eea;
-        color: white;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,22 +148,55 @@ def safe_sum_per_row(df, cols):
     return df[existing].sum(axis=1)
 
 def safe_col_sum(df, col_name):
-    if not col_name or col_name not in df.columns:
-        return 0
-    return int(df[col_name].sum())
+    return int(df[col_name].sum()) if col_name in df.columns else 0
+
+# هنعرفها تحت بس بنحتاجها هنا
+PLATFORM_COLS = {
+    "Instagram": {
+        "total": "Instagram Answered",
+        "bookings": "New Bookings - Insta",
+        "asked_dates": "Asked About Dates - Insta",
+        "interested": "Interested - Insta",
+        "not_interested": "Not Interested - Insta",
+        "no_reply": "Didn't Answer - Insta",
+    },
+    "WhatsApp": {
+        "total": "WhatsApp Answered",
+        "bookings": "New Bookings - Whats",
+        "asked_dates": "Asked About Dates - Whats",
+        "interested": "Interested - Whats",
+        "not_interested": "Not Interested - Whats",
+        "no_reply": "Didn't Answer - Whats",
+    },
+    "TikTok": {
+        "total": "TikTok Answered",
+        "bookings": "New Bookings - TikTok",
+        "asked_dates": "Asked About Dates - TikTok",
+        "interested": "Interested - TikTok",
+        "not_interested": "Not Interested - TikTok",
+        "no_reply": "Didn't Answer - TikTok",
+    },
+    "Calls": {
+        "total": "Total Calls Received",
+        "bookings": "New Bookings - Call",
+        "asked_dates": "Asked About Dates - Call",
+        "interested": "Interested - Call",
+        "not_interested": "Not Interested - Call",
+        "no_reply": "Didn't Answer - Call",
+    },
+}
 
 def find_platform_columns(df, platform_name):
     """Dynamically find the correct column names for each platform"""
     platform_lower = platform_name.lower()
     
-    # NOTE: أهم تعديل هنا -> "didn" عشان يمسك Didn't / Didn’t
     patterns = {
         "total": ["answered", "received", "total"],
         "bookings": ["new bookings", "bookings"],
         "asked_dates": ["asked about dates", "asked dates"],
         "interested": ["interested"],
         "not_interested": ["not interested"],
-        "no_reply": ["didn", "no reply", "no answer"],  # <-- هنا
+        "no_reply": ["didn't answer", "didnt answer", "no reply", "no answer"]
     }
     
     found_cols = {}
@@ -217,7 +232,6 @@ def load_data():
 
     # نحاول نلقط أعمدة Didn't Answer بكل أشكالها
     didnt_answer_cols = [col for col in df.columns if "didn" in col.lower() or "answer" in col.lower()]
-    
     possible_didnt_answer_columns = [
         ["Didn't Answer - Insta", "Didn't Answer - Whats", "Didn't Answer - TikTok"],
         ["Didn’t Answer - Insta", "Didn’t Answer - Whats", "Didn’t Answer - TikTok"],
@@ -364,11 +378,11 @@ st.title("📊 AL-Basma Clinic Leads Dashboard")
 # ======================
 st.subheader("📊 Overview Metrics")
 
-total_interactions = int(df_filtered["total_interactions"].sum()) if "total_interactions" in df_filtered.columns else 0
-total_new_bookings = int(df_filtered["total_new_bookings"].sum()) if "total_new_bookings" in df_filtered.columns else 0
-total_interested = int(df_filtered["total_interested"].sum()) if "total_interested" in df_filtered.columns else 0
-total_not_interested = int(df_filtered["total_not_interested"].sum()) if "total_not_interested" in df_filtered.columns else 0
-total_no_reply = int(df_filtered["total_no_reply"].sum()) if "total_no_reply" in df_filtered.columns else 0
+total_interactions = int(df_filtered["total_interactions"].sum())
+total_new_bookings = int(df_filtered["total_new_bookings"].sum())
+total_interested = int(df_filtered["total_interested"].sum())
+total_not_interested = int(df_filtered["total_not_interested"].sum())
+total_no_reply = int(df_filtered["total_no_reply"].sum())
 
 metrics_data = [
     {"icon": "💬", "title": "TOTAL INTERACTIONS", "value": total_interactions, "subtitle": "customer engagements"},
@@ -393,16 +407,19 @@ for col, metric in zip(cols, metrics_data):
 st.markdown("---")
 
 # ======================
-# Tabs
+# "Tabs" باستخدام Radio عشان ما يرجعش لـ Overview
 # ======================
-tab_overview, tab_platforms, tab_time = st.tabs(
-    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
+section = st.radio(
+    "View",
+    ["Overview", "Platforms", "Time analysis"],
+    key="main_section",
+    horizontal=True,
 )
 
 # ======================
-# 1) OVERVIEW TAB
+# 1) OVERVIEW SECTION
 # ======================
-with tab_overview:
+if section == "Overview":
     col_trend, col_sent = st.columns(2)
 
     with col_trend:
@@ -455,47 +472,9 @@ with tab_overview:
         st.altair_chart(sentiment_chart, use_container_width=True)
 
 # ======================
-# PLATFORM COLS (بعد الدوال عشان نستخدمها فوق)
+# 2) PLATFORMS SECTION
 # ======================
-PLATFORM_COLS = {
-    "Instagram": {
-        "total": "Instagram Answered",
-        "bookings": "New Bookings - Insta",
-        "asked_dates": "Asked About Dates - Insta",
-        "interested": "Interested - Insta",
-        "not_interested": "Not Interested - Insta",
-        "no_reply": "Didn’t Answer - Insta",   # <-- رجّعنا الـ curly
-    },
-    "WhatsApp": {
-        "total": "WhatsApp Answered",
-        "bookings": "New Bookings - Whats",
-        "asked_dates": "Asked About Dates - Whats",
-        "interested": "Interested - Whats",
-        "not_interested": "Not Interested - Whats",
-        "no_reply": "Didn’t Answer - Whats",
-    },
-    "TikTok": {
-        "total": "TikTok Answered",
-        "bookings": "New Bookings - TikTok",
-        "asked_dates": "Asked About Dates - TikTok",
-        "interested": "Interested - TikTok",
-        "not_interested": "Not Interested - TikTok",
-        "no_reply": "Didn’t Answer - TikTok",
-    },
-    "Calls": {
-        "total": "Total Calls Received",
-        "bookings": "New Bookings - Call",
-        "asked_dates": "Asked About Dates - Call",
-        "interested": "Interested - Call",
-        "not_interested": "Not Interested - Call",
-        "no_reply": "Didn’t Answer - Call",
-    },
-}
-
-# ======================
-# 2) PLATFORMS TAB
-# ======================
-with tab_platforms:
+elif section == "Platforms":
     st.subheader("Platform Breakdown (per platform)")
 
     selected_platform = st.selectbox(
@@ -626,9 +605,9 @@ with tab_platforms:
             st.info("لا توجد أعمدة New Bookings للمنصات في الشيت.")
 
 # ======================
-# 3) TIME ANALYSIS TAB
+# 3) TIME ANALYSIS SECTION
 # ======================
-with tab_time:
+else:  # section == "Time analysis"
     st.subheader("Last 4 weeks (weekly view)")
 
     weekly_platform = st.selectbox(
