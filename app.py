@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, date
 # إعدادات الصفحة (لازم تبقى أول حاجة في الكود)
 # ======================
 st.set_page_config(
-    page_title="AL-Basma Clinic Leads Dashboard",
+    page_title="AL-Basma Clinic ",
     page_icon="📊",
     layout="wide",
 )
@@ -320,9 +320,6 @@ for col, metric in zip(cols, metrics_data):
         """, unsafe_allow_html=True)
 
 st.markdown("---")
-tab_overview, tab_platforms, tab_time = st.tabs(
-    ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
-)
 
 # ======================
 # بدل tabs عملنا radio عشان ما يرجعكش على Overview كل ما تختار platform
