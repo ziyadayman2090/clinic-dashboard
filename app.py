@@ -166,100 +166,45 @@ def safe_sum_per_row(df, cols):
     return df[existing].sum(axis=1)
 
 def safe_col_sum(df, col_name):
-    return int(df[col_name].sum()) if col_name in df.columns else 0
-
-# =========  خريطة الأعمدة لكل منصة (هتستخدم بعدين) =========
-PLATFORM_COLS = {
-    "Instagram": {
-        "total": "Instagram Answered",
-        "bookings": "New Bookings - Insta",
-        "asked_dates": "Asked About Dates - Insta",
-        "interested": "Interested - Insta",
-        "not_interested": "Not Interested - Insta",
-        # الاسم زي ما في الشيت عندك (لو عندك الـ curly ’ خليه زي ما هو)
-        "no_reply": "Didn’t Answer - Insta",
-    },
-    "WhatsApp": {
-        "total": "WhatsApp Answered",
-        "bookings": "New Bookings - Whats",
-        "asked_dates": "Asked About Dates - Whats",
-        "interested": "Interested - Whats",
-        "not_interested": "Not Interested - Whats",
-        "no_reply": "Didn’t Answer - Whats",
-    },
-    "TikTok": {
-        "total": "TikTok Answered",
-        "bookings": "New Bookings - TikTok",
-        "asked_dates": "Asked About Dates - TikTok",
-        "interested": "Interested - TikTok",
-        "not_interested": "Not Interested - TikTok",
-        "no_reply": "Didn’t Answer - TikTok",
-    },
-    "Calls": {
-        "total": "Total Calls Received",
-        "bookings": "New Bookings - Call",
-        "asked_dates": "Asked About Dates - Call",
-        "interested": "Interested - Call",
-        "not_interested": "Not Interested - Call",
-        "no_reply": "Didn’t Answer - Call",
-    },
-}
+    """تجميع عمود بشكل آمن حتى لو الاسم None أو مش موجود"""
+    if not col_name:
+        return 0
+    if col_name not in df.columns:
+        return 0
+    return int(df[col_name].fillna(0).sum())
 
 def find_platform_columns(df, platform_name):
-    """
-    يحاول يلاقي الأعمدة اللي تخص المنصة دي حتى لو الاسم متغير شوية.
-    أهم حاجة هنا no_reply عشان "Didn't Answer".
-    """
+    """Dynamically find the correct column names for each platform"""
     platform_lower = platform_name.lower()
     
+    # Define possible column patterns for each metric type
     patterns = {
         "total": ["answered", "received", "total"],
         "bookings": ["new bookings", "bookings"],
         "asked_dates": ["asked about dates", "asked dates"],
         "interested": ["interested"],
         "not_interested": ["not interested"],
-        "no_reply": ["didn", "answer", "no reply", "no answer"],
+        "no_reply": ["didn't answer", "didnt answer", "no reply", "no answer"]
     }
     
     found_cols = {}
     
-    # نحاول نلاقي أعمدة بالـ patterns
     for metric_type, pattern_list in patterns.items():
+        matching_cols = []
         for col in df.columns:
             col_lower = col.lower()
-            if (platform_lower in col_lower or
+            if (platform_lower in col_lower or 
                 (platform_lower == "calls" and "call" in col_lower)):
-                if any(pat in col_lower for pat in pattern_list):
-                    found_cols[metric_type] = col
-                    break
-    
-    # special handling لـ no_reply لو لسه مش لاقيينه
-    if "no_reply" not in found_cols or found_cols["no_reply"] is None:
-        base_map = {
-            "Instagram": "Insta",
-            "WhatsApp": "Whats",
-            "TikTok": "TikTok",
-            "Calls": "Call",
-        }
-        base = base_map.get(platform_name)
-        if base:
-            for variant in [
-                f"Didn't Answer - {base}",
-                f"Didn’t Answer - {base}",  # curly ’
-                f"Didnt Answer - {base}",
-            ]:
-                if variant in df.columns:
-                    found_cols["no_reply"] = variant
-                    break
-    
-    # fallback: لو لسه metric معينة ملهاش عمود، جرّب من PLATFORM_COLS
-    for metric_type in patterns.keys():
-        if metric_type not in found_cols or found_cols[metric_type] is None:
-            predefined = PLATFORM_COLS.get(platform_name, {}).get(metric_type)
-            if predefined in df.columns:
-                found_cols[metric_type] = predefined
-            else:
-                found_cols.setdefault(metric_type, None)
+                for pattern in pattern_list:
+                    if pattern in col_lower:
+                        matching_cols.append(col)
+                        break
+        
+        if matching_cols:
+            found_cols[metric_type] = matching_cols[0]
+        else:
+            predefined_col = PLATFORM_COLS[platform_name][metric_type]
+            found_cols[metric_type] = predefined_col if predefined_col in df.columns else None
     
     return found_cols
 
@@ -267,15 +212,41 @@ def find_platform_columns(df, platform_name):
 def load_data():
     df = pd.read_csv(GOOGLE_SHEET_CSV_URL)
 
-    # نتأكد إن اسم العمود Date مكتوب صح
     if "Date" not in df.columns:
         raise ValueError("Column 'Date' not found in sheet. تأكد إن أول عمود اسمه Date بالظبط.")
 
-    # نحول التاريخ
     df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date")
 
-    # نعمل أعمدة إجمالية
+    # Detect "Didn't Answer" columns
+    didnt_answer_cols = [col for col in df.columns if "didn" in col.lower() or "answer" in col.lower()]
+    
+    possible_didnt_answer_columns = [
+        ["Didn't Answer - Insta", "Didn't Answer - Whats", "Didn't Answer - TikTok"],
+        ["Didn’t Answer - Insta", "Didn’t Answer - Whats", "Didn’t Answer - TikTok"],
+        ["Didnt Answer - Insta", "Didnt Answer - Whats", "Didnt Answer - TikTok"],
+        ["Didn't Answer- Insta", "Didn't Answer- Whats", "Didn't Answer- TikTok"],
+    ]
+    
+    selected_columns = None
+    for column_set in possible_didnt_answer_columns:
+        if all(col in df.columns for col in column_set):
+            selected_columns = column_set
+            break
+    
+    if selected_columns is None and didnt_answer_cols:
+        selected_columns = []
+        for platform in ["Insta", "Whats", "TikTok"]:
+            platform_cols = [col for col in didnt_answer_cols if platform.lower() in col.lower()]
+            if platform_cols:
+                selected_columns.append(platform_cols[0])
+            else:
+                selected_columns.append(None)
+    
+    if selected_columns is None:
+        selected_columns = [None, None, None]
+
+    # إجماليات
     df["total_interactions"] = safe_sum_per_row(
         df,
         [
@@ -323,22 +294,11 @@ def load_data():
         ],
     )
 
-    # ======= هنا بقى الجزء المهم بتاع "Didn't Answer" =======
-    didnt_cols_all = []
-
-    for base in ["Insta", "Whats", "TikTok", "Call"]:
-        for variant in [
-            f"Didn't Answer - {base}",
-            f"Didn’t Answer - {base}",   # curly ’
-            f"Didnt Answer - {base}",
-        ]:
-            if variant in df.columns:
-                didnt_cols_all.append(variant)
-                break  # أول واحدة نلاقيها نستخدمها
-
-    df["total_no_reply"] = safe_sum_per_row(df, didnt_cols_all)
+    valid_didnt_answer_cols = [col for col in selected_columns if col is not None and col in df.columns]
+    df["total_no_reply"] = safe_sum_per_row(df, valid_didnt_answer_cols)
 
     return df
+
 
 # ======================
 # تحميل الداتا
@@ -370,7 +330,7 @@ with st.sidebar:
     elif quick_range == "This month":
         default_start = today.replace(day=1)
         default_end = today
-    else:  # All time
+    else:
         default_start = min_date
         default_end = max_date
 
@@ -387,12 +347,10 @@ with st.sidebar:
         max_value=max_date,
     )
 
-    # تصليح لو المستخدم اختار تاريخ غلط
     if start_date > end_date:
         st.warning("Start date بعد End date – تم تعديله تلقائيًا.")
         start_date, end_date = end_date, start_date
 
-# نفلتر الداتا
 mask = (df["Date"].dt.date >= start_date) & (df["Date"].dt.date <= end_date)
 df_filtered = df.loc[mask].copy()
 
@@ -421,7 +379,7 @@ metrics_data = [
     {"icon": "✅", "title": "NEW BOOKINGS", "value": total_new_bookings, "subtitle": "confirmed appointments"},
     {"icon": "🎯", "title": "INTERESTED", "value": total_interested, "subtitle": "potential clients"},
     {"icon": "❌", "title": "NOT INTERESTED", "value": total_not_interested, "subtitle": "declined offers"},
-    {"icon": "⏸️", "title": "DIDN'T ANSWER", "value": total_no_reply, "subtitle": "no response"},
+    {"icon": "⏸️", "title": "DIDN'T ANSWER", "value": total_no_reply, "subtitle": "no response"}
 ]
 
 cols = st.columns(5)
@@ -439,7 +397,7 @@ for col, metric in zip(cols, metrics_data):
 st.markdown("---")
 
 # ======================
-# Tabs رئيسية
+# Tabs
 # ======================
 tab_overview, tab_platforms, tab_time = st.tabs(
     ["📈 Overview", "📱 Platforms", "⏱ Time analysis"]
@@ -465,7 +423,7 @@ with tab_overview:
         trend_chart = alt.Chart(daily).mark_line(point=True).encode(
             x="Date:T",
             y="total_interactions:Q",
-            tooltip=["Date", "total_interactions"],
+            tooltip=["Date", "total_interactions"]
         ).properties(width="container")
 
         st.altair_chart(trend_chart, use_container_width=True)
@@ -495,10 +453,48 @@ with tab_overview:
             x="Sentiment:N",
             y="Count:Q",
             color="Sentiment:N",
-            tooltip=["Sentiment", "Count"],
+            tooltip=["Sentiment", "Count"]
         ).properties(width="container")
 
         st.altair_chart(sentiment_chart, use_container_width=True)
+
+# ======================
+# PLATFORM_COLS
+# ======================
+PLATFORM_COLS = {
+    "Instagram": {
+        "total": "Instagram Answered",
+        "bookings": "New Bookings - Insta",
+        "asked_dates": "Asked About Dates - Insta",
+        "interested": "Interested - Insta",
+        "not_interested": "Not Interested - Insta",
+        "no_reply": "Didn't Answer - Insta",
+    },
+    "WhatsApp": {
+        "total": "WhatsApp Answered",
+        "bookings": "New Bookings - Whats",
+        "asked_dates": "Asked About Dates - Whats",
+        "interested": "Interested - Whats",
+        "not_interested": "Not Interested - Whats",
+        "no_reply": "Didn't Answer - Whats",
+    },
+    "TikTok": {
+        "total": "TikTok Answered",
+        "bookings": "New Bookings - TikTok",
+        "asked_dates": "Asked About Dates - TikTok",
+        "interested": "Interested - TikTok",
+        "not_interested": "Not Interested - TikTok",
+        "no_reply": "Didn't Answer - TikTok",
+    },
+    "Calls": {
+        "total": "Total Calls Received",
+        "bookings": "New Bookings - Call",
+        "asked_dates": "Asked About Dates - Call",
+        "interested": "Interested - Call",
+        "not_interested": "Not Interested - Call",
+        "no_reply": "Didn't Answer - Call",
+    },
+}
 
 # ======================
 # 2) PLATFORMS TAB
@@ -509,7 +505,7 @@ with tab_platforms:
     selected_platform = st.selectbox(
         "Select Platform:",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
-        key="platform_breakdown_select",
+        key="platform_breakdown_select"
     )
 
     platform_cols = find_platform_columns(df_filtered, selected_platform)
@@ -529,7 +525,7 @@ with tab_platforms:
         {"title": "ASKED ABOUT DATES", "value": platform_asked_dates, "gradient": "linear-gradient(135deg, #fc466b 0%, #3f5efb 100%)"},
         {"title": "INTERESTED", "value": platform_interested, "gradient": "linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%)"},
         {"title": "NOT INTERESTED", "value": platform_not_interested, "gradient": "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"},
-        {"title": "DIDN'T ANSWER", "value": platform_no_reply, "gradient": "linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)"},
+        {"title": "DIDN'T ANSWER", "value": platform_no_reply, "gradient": "linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)"}
     ]
     
     row1 = st.columns(3)
@@ -552,13 +548,13 @@ with tab_platforms:
         "Instagram": "Instagram Answered",
         "WhatsApp": "WhatsApp Answered",
         "TikTok": "TikTok Answered",
-        "Calls": "Total Calls Received",
+        "Calls": "Total Calls Received"
     }
 
     platform_data = {p: df_filtered[c].sum() for p, c in platform_cols_simple.items() if c in df_filtered.columns}
     pie_df = pd.DataFrame(list(platform_data.items()), columns=["Platform", "Count"])
     pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=50).encode(
-        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"],
+        theta="Count:Q", color="Platform:N", tooltip=["Platform", "Count"]
     )
     st.altair_chart(pie_chart, use_container_width=True)
 
@@ -643,7 +639,7 @@ with tab_time:
         "Choose platform (weekly view):",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
-        key="weekly_platform_select",
+        key="weekly_platform_select"
     )
 
     weekly_cols_map = PLATFORM_COLS[weekly_platform]
@@ -700,7 +696,7 @@ with tab_time:
         "Choose platform (last 7 days – daily view):",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
         index=0,
-        key="last7_platform_select",
+        key="last7_platform_select"
     )
 
     daily_cols_map = PLATFORM_COLS[daily_platform]
