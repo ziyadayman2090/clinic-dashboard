@@ -519,29 +519,30 @@ PLATFORM_COLS = {
 with tab_platforms:
     st.subheader("Platform Breakdown (per platform)")
 
-    # Platform selection for the breakdown - using unique key
     selected_platform = st.selectbox(
         "Select Platform:",
         ["Instagram", "WhatsApp", "TikTok", "Calls"],
         key="platform_breakdown_select"
     )
 
-    # Dynamically find the correct column names for the selected platform
-    platform_cols = PLATFORM_COLS(df_filtered, selected_platform)
+    # ✅ CORRECT: Access dictionary with square brackets
+    platform_cols = PLATFORM_COLS[selected_platform]
 
-    # Calculate platform-specific metrics using dynamically found columns
+    # Calculate platform-specific metrics
     total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
     platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
     platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
     platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
     platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
     platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
-
-    if platform_no_reply == 0 and total_platform_interactions > 0:
-        answered_total = platform_bookings + platform_asked_dates + platform_interested + platform_not_interested
-        calculated_no_reply = total_platform_interactions - answered_total
-        if calculated_no_reply > 0:
-            platform_no_reply = calculated_no_reply
+    
+    # ✅ SMART CALCULATION: Ensure "Didn't Answer" is never zero when it shouldn't be
+    answered_interactions = (platform_bookings + platform_asked_dates + 
+                           platform_interested + platform_not_interested)
+    calculated_no_reply = max(0, total_platform_interactions - answered_interactions)
+    
+    # Use the calculated value instead of the potentially incorrect column value
+    platform_no_reply = calculated_no_reply
 
     # Platform metrics with gradient cards
     st.subheader(f"📊 {selected_platform} Performance")
