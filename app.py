@@ -525,21 +525,55 @@ with tab_platforms:
         key="platform_breakdown_select"
     )
 
-    # ✅ CORRECT: Access dictionary with square brackets
     platform_cols = PLATFORM_COLS[selected_platform]
 
-    # Calculate platform-specific metrics
+    # Calculate the metrics we know work
     total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
     platform_bookings = safe_col_sum(df_filtered, platform_cols["bookings"])
-    platform_asked_dates = safe_col_sum(df_filtered, platform_cols["asked_dates"])
-    platform_interested = safe_col_sum(df_filtered, platform_cols["interested"])
-    platform_not_interested = safe_col_sum(df_filtered, platform_cols["not_interested"])
-    platform_no_reply = safe_col_sum(df_filtered, platform_cols["no_reply"])
     
-    # ✅ SMART CALCULATION: Ensure "Didn't Answer" is never zero when it shouldn't be
+    # Try multiple column name variations for the problematic metrics
+    platform_variations = {
+        "asked_dates": [
+            platform_cols["asked_dates"],
+            platform_cols["asked_dates"].replace("Asked About Dates", "Asked Dates"),
+            platform_cols["asked_dates"].replace("Asked About Dates", "Dates Asked"),
+        ],
+        "interested": [
+            platform_cols["interested"],
+            platform_cols["interested"].replace("Interested", "Intrested"),  # Common typo
+            platform_cols["interested"].replace(" - ", " "),
+        ],
+        "not_interested": [
+            platform_cols["not_interested"], 
+            platform_cols["not_interested"].replace("Not Interested", "NotInterested"),
+            platform_cols["not_interested"].replace(" - ", " "),
+        ]
+    }
+    
+    # Use the first available column for each metric
+    platform_asked_dates = 0
+    platform_interested = 0  
+    platform_not_interested = 0
+    
+    for col_variation in platform_variations["asked_dates"]:
+        if col_variation in df_filtered.columns:
+            platform_asked_dates = safe_col_sum(df_filtered, col_variation)
+            break
+            
+    for col_variation in platform_variations["interested"]:
+        if col_variation in df_filtered.columns:
+            platform_interested = safe_col_sum(df_filtered, col_variation)
+            break
+            
+    for col_variation in platform_variations["not_interested"]:
+        if col_variation in df_filtered.columns:
+            platform_not_interested = safe_col_sum(df_filtered, col_variation)
+            break
+
+    # Calculate "Didn't Answer"
     answered_interactions = (platform_bookings + platform_asked_dates + 
                            platform_interested + platform_not_interested)
-    calculated_no_reply = max(0, total_platform_interactions - answered_interactions)
+    platform_no_reply = max(0, total_platform_interactions - answered_interactions)
     
     # Use the calculated value instead of the potentially incorrect column value
     platform_no_reply = calculated_no_reply
