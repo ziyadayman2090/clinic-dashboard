@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, date
 # إعدادات الصفحة (لازم تبقى أول حاجة في الكود)
 # ======================
 st.set_page_config(
-    page_title="AL-Basma Clinic ",
+    page_title="AL-Basma Clinic",
     page_icon="📊",
     layout="wide",
 )
