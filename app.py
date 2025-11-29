@@ -527,7 +527,7 @@ with tab_platforms:
     )
 
     # Dynamically find the correct column names for the selected platform
-    platform_cols = platform_cols(df_filtered, selected_platform)
+    platform_cols = PLATFORM_COLS(df_filtered, selected_platform)
 
     # Calculate platform-specific metrics using dynamically found columns
     total_platform_interactions = safe_col_sum(df_filtered, platform_cols["total"])
